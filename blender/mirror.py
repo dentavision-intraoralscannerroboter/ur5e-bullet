@@ -20,6 +20,8 @@ _buffer = ""
 _render_tile_count = 0
 _render_remaining = 0
 _render_paths = []
+_render_plan = []
+_render_busy = False
 
 
 def send_to_host(data):
@@ -29,6 +31,21 @@ def send_to_host(data):
         _conn.sendall((json.dumps(data) + "\n").encode("utf-8"))
     except OSError:
         pass
+
+
+@bpy.app.handlers.persistent
+def _on_render_write(scene, depsgraph=None):
+    global _render_tile_count
+    _render_tile_count += 1
+    send_to_host({"render_progress": _render_tile_count})
+
+
+@bpy.app.handlers.persistent
+def _on_render_complete(scene, depsgraph=None):
+    global _render_remaining
+    _render_remaining -= 1
+    if _render_remaining <= 0:
+        send_to_host({"render_complete": list(_render_paths)})
 
 
 def build_scene():
@@ -124,44 +141,43 @@ def poll():
         if "tcp" in msg:
             _apply_tcp(msg["tcp"])
         if "render" in msg:
-            global _render_tile_count, _render_remaining, _render_paths
+            global _render_tile_count, _render_remaining, _render_paths, _render_plan, _render_busy
+            if _render_busy:
+                print("[mirror] Render bereits aktiv – Nachricht ignoriert")
+                return 0.05
+            r = msg["render"]
+            if isinstance(r, dict) and r.get("left") and r.get("right"):
+                _render_plan = [
+                    ("ScannerCamera_L", r["left"]),
+                    ("ScannerCamera_R", r["right"]),
+                ]
+            else:
+                _render_plan = [
+                    ("ScannerCamera_L", "render_L.png"),
+                    ("ScannerCamera_R", "render_R.png"),
+                ]
             _render_tile_count = 0
-            _render_remaining = 2
+            _render_remaining = len(_render_plan)
             _render_paths = []
-
-            @bpy.app.handlers.persistent
-            def _on_render_write(scene, depsgraph=None):
-                global _render_tile_count
-                _render_tile_count += 1
-                send_to_host({"render_progress": _render_tile_count})
-
-            @bpy.app.handlers.persistent
-            def _on_render_complete(scene, depsgraph=None):
-                global _render_remaining, _render_paths
-                _render_remaining -= 1
-                if _render_remaining <= 0:
-                    send_to_host({"render_complete": list(_render_paths)})
-                    for w in list(bpy.app.handlers.render_write):
-                        if w.__name__ == "_on_render_write":
-                            bpy.app.handlers.render_write.remove(w)
-                    for c in list(bpy.app.handlers.render_complete):
-                        if c.__name__ == "_on_render_complete":
-                            bpy.app.handlers.render_complete.remove(c)
-
-            bpy.app.handlers.render_write.append(_on_render_write)
-            bpy.app.handlers.render_complete.append(_on_render_complete)
+            _render_busy = True
 
             def _do_render():
-                global _render_paths
+                global _render_paths, _render_busy
                 _render_paths = []
-                for suffix, fname in (("_L", "render_L.png"), ("_R", "render_R.png")):
-                    cam = bpy.data.objects.get(f"ScannerCamera{suffix}")
-                    if cam is not None:
-                        bpy.context.scene.camera = cam
-                    path = os.path.join(rig.ROOT, fname)
-                    bpy.context.scene.render.filepath = path
-                    _render_paths.append(path)
-                    bpy.ops.render.render(write_still=True)
+                try:
+                    for cam_name, rel in _render_plan:
+                        cam = bpy.data.objects.get(cam_name)
+                        if cam is not None:
+                            bpy.context.scene.camera = cam
+                        path = os.path.join(rig.ROOT, rel)
+                        d = os.path.dirname(path)
+                        if d:
+                            os.makedirs(d, exist_ok=True)
+                        bpy.context.scene.render.filepath = path
+                        _render_paths.append(path)
+                        bpy.ops.render.render(write_still=True)
+                finally:
+                    _render_busy = False
                 return None
             bpy.app.timers.register(_do_render, first_interval=0)
         if "replace_jaw" in msg:
@@ -197,6 +213,8 @@ def main():
         return
     build_scene()
     if connect(port):
+        bpy.app.handlers.render_write.append(_on_render_write)
+        bpy.app.handlers.render_complete.append(_on_render_complete)
         bpy.app.timers.register(poll, first_interval=SOCKET_POLL_INTERVAL)
 
 

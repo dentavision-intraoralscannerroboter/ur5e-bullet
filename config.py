@@ -44,7 +44,7 @@ CAMERA_DISPLAY_M = 0.2
 # Seitlicher Versatz der beiden Kameras (Stereo-Baseline) relativ zum TCP,
 # in Scanner-lokalen Koordinaten (Y-Achse), in Meter (S=1 -> 1 BU).
 # Jede Kamera wird um +/- CAMERA_LATERAL_OFFSET quer zur Blickrichtung versetzt.
-CAMERA_LATERAL_OFFSET = 0.0025
+CAMERA_LATERAL_OFFSET = 0.0015
 
 # ── Licht ──
 LIGHT_POWER = 0.001
@@ -56,6 +56,8 @@ RENDER_H = 1080
 RENDER_ENGINE = "CYCLES"
 RENDER_DEVICE = "GPU"
 RENDER_TRANSPARENT = False
+# Gesamttimeout pro Render-Paar (L+R, Worst-Case ~6 min/Bild), danach Scan-Abbruch.
+RENDER_TIMEOUT = 900
 
 # ── Tool-Offset (Scanner → TCP) ──
 TOOL_OFFSET_POS = [0.213, 0, -0.006]
@@ -151,10 +153,10 @@ START_POSITIONS = {
         "jaw_folder": 1,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_target": [0.662, 0.0],
         "parabola":  {"x0": 0.616, "a": 0.047, "z": 0.296, "n": 21, "y_max": 0.037, "power": 4},
         "ori_anchors": {"start": [90, 0, 0], "mid": [180, 90, 0], "end": [-90, 0, 0]},
         "look_at_jaw": True,
-        "look_target": [0.662, 0.0],
         "view": {"apply": True, "distance": 0.1, "yaw": 90.0, "pitch": -89.0, "target": [0.65, 0.0, 0.3]},
     },
     "aussen2low": {
@@ -169,10 +171,10 @@ START_POSITIONS = {
         "jaw_folder": 2,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_target": [0.662, 0.0],
         "parabola":  {"x0": 0.619, "a": 0.05, "z": 0.297, "n": 21, "y_max": 0.039, "power": 4}, #37
         "ori_anchors": {"start": [90, 0, 0], "mid": [180, 90, 0], "end": [-90, 0, 0]},
         "look_at_jaw": True,
-        "look_target": [0.662, 0.0],
         "view": {"apply": True, "distance": 1.0, "yaw": 90.0, "pitch": -25.0, "target": [0.66, 0.0, 0.35]},
     },
     "aussen2": {
@@ -186,10 +188,10 @@ START_POSITIONS = {
         "jaw_folder": 1,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_target": [0.65, 0.0],
         "parabola":  {"x0": 0.615, "a": 0.0463, "z": 0.295, "n": 21, "y_max": 0.05, "power": 4},
         "ori_anchors": {"start": [90, 0, 0], "mid": [180, 90, 0], "end": [-90, 0, 0]},
         "look_at_jaw": True,
-        "look_target": [0.65, 0.0],
         "view": {"apply": True, "distance": 1.0, "yaw": 90.0, "pitch": -25.0, "target": [0.65, 0.0, 0.35]},
     },
     "oben": {
@@ -201,12 +203,11 @@ START_POSITIONS = {
         "jaw_folder": 1,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
-        "parabola":  {"x0": 0.8265, "a": 0.045, "z": 0.31, "n": 21, "y_max": 0.03, "power": 2},
+        "look_target": [0.862, 0.0],
+        "parabola":  {"x0": 0.8265, "a": 0.04, "z": 0.31, "n": 21, "y_max": 0.023, "power": 2},
         "ori_anchors": {"start": [0 , 0, 0], "mid": [0, 0, 0], "end": [0, 0, 0]},
         "look_at_jaw": False,
-        "look_target": [0.65, 0.0],
-        "view": {"apply": True, "distance": 1.0, "yaw": 0.0, "pitch": -25.0, "target": [0.85, 0.0, 0.35]},
-    },
+        "view": {"apply": True, "distance": 0.1, "yaw": 90.0, "pitch": -89.0, "target": [0.85, 0.0, 0.3]},},
     "innen": {
         "tcp_pos":  [0.78, -0.05, 0.29],
         "tcp_ori_deg": [0, 0, -90],

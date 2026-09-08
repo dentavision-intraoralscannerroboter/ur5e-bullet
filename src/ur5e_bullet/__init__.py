@@ -1,4 +1,5 @@
 import os
+import json
 import math
 import time
 import pybullet
@@ -31,6 +32,18 @@ PB_CAMERA_DISTANCE = _cfg_mod.PB_CAMERA_DISTANCE
 PB_CAMERA_YAW = _cfg_mod.PB_CAMERA_YAW
 PB_CAMERA_PITCH = _cfg_mod.PB_CAMERA_PITCH
 PB_CAMERA_TARGET_POS = _cfg_mod.PB_CAMERA_TARGET_POS
+RENDER_W = _cfg_mod.RENDER_W
+RENDER_H = _cfg_mod.RENDER_H
+RENDER_ENGINE = _cfg_mod.RENDER_ENGINE
+RENDER_DEVICE = _cfg_mod.RENDER_DEVICE
+RENDER_TIMEOUT = _cfg_mod.RENDER_TIMEOUT
+CAMERA_LATERAL_OFFSET = _cfg_mod.CAMERA_LATERAL_OFFSET
+CAMERA_OFFSET = _cfg_mod.CAMERA_OFFSET
+TOOL_OFFSET_POS = _cfg_mod.TOOL_OFFSET_POS
+CAMERA_FOV_DEG = _cfg_mod.CAMERA_FOV_DEG
+CAMERA_LENS_MM = _cfg_mod.CAMERA_LENS_MM
+
+RENDER_DIR = os.path.join(_proj_root, "render")
 
 
 def _draw_crosshair(pos, color, items, label=None):
@@ -77,6 +90,8 @@ def _parse_command(tokens):
         return Command("reset", {})
     if tokens[0] == "render":
         return Command("render", {})
+    if tokens[0] == "scan":
+        return Command("scan", {})
     if tokens[0] == "jaw":
         if len(tokens) < 2:
             print("  ? 'jaw <nr> [upper|lower]' erwartet")
@@ -348,6 +363,18 @@ def demo_simulation():
         reset_overlay()
         return ok
 
+    def _render_pair(rel_left, rel_right, timeout=RENDER_TIMEOUT):
+        m = sim._mirror
+        if m is None or not m._connected:
+            print("  ⚠ Blender-Mirror nicht verbunden – Render übersprungen")
+            return False
+        m._render_done.clear()
+        m.send_message({"render": {"left": rel_left, "right": rel_right}})
+        if not m._render_done.wait(timeout):
+            print(f"  ⚠ Render-Timeout nach {timeout}s")
+            return False
+        return True
+
     items = []
     waypoint_bodies = []
     look_target_body_id = None
@@ -376,6 +403,7 @@ def demo_simulation():
     print("  Gebiss:      'jaw <nr> [upper|lower]' (z. B. jaw 3 upper)")
     print("  Start:       'start <Aussen|Oben|Innen>' (Startposition anfahren)")
     print("  Waypoints:   '+'/'-' naechster/vorheriger Waypoint")
+    print("  Scan:        'scan' (alle Waypoints abfahren + L/R rendern)")
     print("────────────────────────────────────────────")
     current_start = None
     waypoint_idx = 0
@@ -538,6 +566,86 @@ def demo_simulation():
                 if not ok:
                     print(f"  ⛔ {current_start} {lbl} nicht erreichbar")
             reset_overlay()
+            continue
+
+        if cmd.action == "scan":
+            if current_start is None:
+                print("  ? Keine Startposition aktiv – zuerst 'start <name>'")
+                continue
+            cfg = START_POSITIONS[current_start]
+            wps = _resolve_waypoints(cfg)
+            if not wps:
+                print(f"  ? Keine Waypoints definiert fuer {current_start}")
+                continue
+            jaw_folder = cfg["jaw_folder"]
+            jaw_type = cfg["jaw_type"]
+            ordner = f"{jaw_type}_{jaw_folder}_{current_start}_{RENDER_W}x{RENDER_H}_lat{CAMERA_LATERAL_OFFSET*1000:.1f}mm"
+            scan_dir = os.path.join(RENDER_DIR, ordner)
+            os.makedirs(scan_dir, exist_ok=True)
+            settings = {
+                "render_w": RENDER_W,
+                "render_h": RENDER_H,
+                "render_engine": RENDER_ENGINE,
+                "render_device": RENDER_DEVICE,
+                "camera_lateral_offset": CAMERA_LATERAL_OFFSET,
+                "camera_offset": list(CAMERA_OFFSET),
+                "tool_offset_pos": list(TOOL_OFFSET_POS),
+                "camera_fov_deg": CAMERA_FOV_DEG,
+                "camera_lens_mm": CAMERA_LENS_MM,
+                "start_position": current_start,
+                "jaw_folder": jaw_folder,
+                "jaw_type": jaw_type,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
+                json.dump(settings, f, indent=2)
+            print(f"  → Scan-Ordner: {scan_dir}")
+            # ── Phase 1: Rückweg zum Waypoint 0 entlang der Kurve (kein Render) ──
+            print("  → Rückweg zum Waypoint 0...")
+            while waypoint_idx > 0:
+                wp = wps[waypoint_idx - 1]
+                lbl = wp.get("name") or wp.get("label", str(waypoint_idx))
+                print(f"  → {current_start} {lbl} ({waypoint_idx}/{len(wps)})...")
+                wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
+                ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
+                if not ok:
+                    print(f"  ⛔ Rückweg abgebrochen ({lbl} nicht erreichbar)")
+                    break
+                waypoint_idx -= 1
+            # ── Phase 2: Sweep W0→max mit Render an jedem Waypoint ──
+            done = rendered = skipped = 0
+            for i, wp in enumerate(wps):
+                lbl = wp.get("name") or wp.get("label", str(i + 1))
+                print(f"  → scan {current_start} {lbl} ({i+1}/{len(wps)})...")
+                wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
+                if i != waypoint_idx:
+                    ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
+                    if not ok:
+                        skipped += 1
+                        print(f"  ⛔ {current_start} {lbl} nicht erreichbar – übersprungen")
+                        continue
+                pose_pos, pose_quat = sim.get_tcp_pose()
+                pose_deg = [math.degrees(v) for v in pybullet.getEulerFromQuaternion(pose_quat)]
+                idx = i + 1
+                pose = {
+                    "waypoint": i,
+                    "label": lbl,
+                    "tcp_pos": list(pose_pos),
+                    "tcp_euler_deg": pose_deg,
+                    "tcp_quat": list(pose_quat),
+                }
+                with open(os.path.join(scan_dir, f"{idx}_pose.json"), "w") as f:
+                    json.dump(pose, f, indent=2)
+                rel_left = os.path.join("render", ordner, f"{idx}A_render.png")
+                rel_right = os.path.join("render", ordner, f"{idx}B_render.png")
+                if _render_pair(rel_left, rel_right):
+                    rendered += 1
+                else:
+                    print("  ⛔ Render fehlgeschlagen – Scan abgebrochen")
+                    break
+                done += 1
+                waypoint_idx = i
+            print(f"  ✔ Scan fertig: {scan_dir} ({done} Waypoints, {rendered} gerendert, {skipped} übersprungen)")
             continue
 
         if cmd.action == "error":

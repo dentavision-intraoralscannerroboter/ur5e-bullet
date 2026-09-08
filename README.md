@@ -70,6 +70,7 @@ position and load the jaw.
 | `start <name>`         | Move to start position, load jaw              |
 | `jaw <nr> [upper/lower]` | Load jaw from `data/meshes_jaws/<nr>` (only after `start`) |
 | `+ [n]` / `- [n]`      | Next / previous waypoint (only after `start`) |
+| `scan`                 | Drive all waypoints (0..max), save TCP poses and render L/R at each (only after `start`) |
 | `render`               | Render scene in Blender (Cycles, stereo)      |
 | `q`                    | Quit                                          |
 
