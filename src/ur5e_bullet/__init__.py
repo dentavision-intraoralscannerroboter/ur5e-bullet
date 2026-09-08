@@ -64,6 +64,92 @@ def _draw_crosshair(pos, color, items, label=None):
     return items
 
 
+def _quat_mul(a, b):
+    a1, a2, a3, a0 = a
+    b1, b2, b3, b0 = b
+    return [
+        a0*b1 + a1*b0 + a2*b3 - a3*b2,
+        a0*b2 - a1*b3 + a2*b0 + a3*b1,
+        a0*b3 + a1*b2 - a2*b1 + a3*b0,
+        a0*b0 - a1*b1 - a2*b2 - a3*b3,
+    ]
+
+
+def _quat_conj(q):
+    return [-q[0], -q[1], -q[2], q[3]]
+
+
+def _normalize(v):
+    n = math.sqrt(sum(c * c for c in v))
+    if n < 1e-12:
+        return [1.0, 0.0, 0.0]
+    return [c / n for c in v]
+
+
+def _to_jaw_frame(r_jaw, jaw_pos, p_world):
+    d = [p_world[k] - jaw_pos[k] for k in range(3)]
+    return [
+        r_jaw[0]*d[0] + r_jaw[3]*d[1] + r_jaw[6]*d[2],
+        r_jaw[1]*d[0] + r_jaw[4]*d[1] + r_jaw[7]*d[2],
+        r_jaw[2]*d[0] + r_jaw[5]*d[1] + r_jaw[8]*d[2],
+    ]
+
+
+def _view_dir(q):
+    r = pybullet.getMatrixFromQuaternion(q)
+    return [-r[2], -r[5], -r[8]]
+
+
+def _quat_from_mat(r):
+    r00, r01, r02, r10, r11, r12, r20, r21, r22 = r
+    tr = r00 + r11 + r22
+    if tr > 0.0:
+        s = math.sqrt(tr + 1.0) * 2.0
+        q = [(r21 - r12) / s, (r02 - r20) / s, (r10 - r01) / s, 0.25 * s]
+    elif r00 > r11 and r00 > r22:
+        s = math.sqrt(r00 - r11 - r22 + 1.0) * 2.0
+        q = [0.25 * s, (r01 + r10) / s, (r02 + r20) / s, (r21 - r12) / s]
+    elif r11 > r22:
+        s = math.sqrt(r11 - r00 - r22 + 1.0) * 2.0
+        q = [(r01 + r10) / s, 0.25 * s, (r12 + r21) / s, (r02 - r20) / s]
+    else:
+        s = math.sqrt(r22 - r00 - r11 + 1.0) * 2.0
+        q = [(r02 + r20) / s, (r12 + r21) / s, 0.25 * s, (r10 - r01) / s]
+    return _quat_normalize(q, _quat_identity())
+
+
+def _quat_identity():
+    return [0.0, 0.0, 0.0, 1.0]
+
+
+def _quat_normalize(q, fallback=None):
+    n = math.sqrt(sum(c * c for c in q))
+    if n > 0:
+        return [c / n for c in q]
+    return list(fallback) if fallback is not None else [0.0, 0.0, 0.0, 1.0]
+
+
+def _build_neutral_quat(wps, cfg, r_jaw, jaw_pos):
+    lt = cfg.get("look_target")
+    mid = wps[len(wps) // 2]["tcp_pos"]
+    if lt is not None:
+        aim_world = [lt[0], lt[1], mid[2]]
+    else:
+        aim_world = [jaw_pos[0], jaw_pos[1], mid[2]]
+    mid_rel = _to_jaw_frame(r_jaw, jaw_pos, mid)
+    aim_rel = _to_jaw_frame(r_jaw, jaw_pos, aim_world)
+    v = _normalize([aim_rel[0] - mid_rel[0], aim_rel[1] - mid_rel[1], 0.0])
+    ze = [-v[0], -v[1], 0.0]
+    ye = [-ze[1], ze[0], 0.0]
+    xe = [
+        ye[1]*ze[2] - ye[2]*ze[1],
+        ye[2]*ze[0] - ye[0]*ze[2],
+        ye[0]*ze[1] - ye[1]*ze[0],
+    ]
+    r_neutral = [xe[0], ye[0], ze[0], xe[1], ye[1], ze[1], xe[2], ye[2], ze[2]]
+    return _quat_from_mat(r_neutral)
+
+
 Command = namedtuple("Command", [
     "action", "params",
 ])
@@ -583,6 +669,11 @@ def demo_simulation():
                 continue
             jaw_folder = cfg["jaw_folder"]
             jaw_type = cfg["jaw_type"]
+            jaw_pos = cfg["jaw_pos"]
+            jaw_euler_deg = cfg["jaw_euler_deg"]
+            q_jaw = pybullet.getQuaternionFromEuler([math.radians(v) for v in jaw_euler_deg])
+            r_jaw = pybullet.getMatrixFromQuaternion(q_jaw)
+            q_neutral = _build_neutral_quat(wps, cfg, r_jaw, jaw_pos)
             ordner = f"{jaw_type}_{jaw_folder}_{current_start}_{RENDER_W}x{RENDER_H}_lat{CAMERA_LATERAL_OFFSET*1000:.1f}mm"
             scan_dir = os.path.join(RENDER_DIR, ordner)
             os.makedirs(scan_dir, exist_ok=True)
@@ -599,6 +690,11 @@ def demo_simulation():
                 "start_position": current_start,
                 "jaw_folder": jaw_folder,
                 "jaw_type": jaw_type,
+                "jaw_pos": list(jaw_pos),
+                "jaw_euler_deg": list(jaw_euler_deg),
+                "jaw_quat": list(q_jaw),
+                "neutral_quat": list(q_neutral),
+                "neutral_desc": "view axis horizontal toward aim point (look_target or jaw xy) from mid waypoint, roll 0",
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
             with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
@@ -630,14 +726,15 @@ def demo_simulation():
                         print(f"  ⛔ {current_start} {lbl} nicht erreichbar – übersprungen")
                         continue
                 pose_pos, pose_quat = sim.get_tcp_pose()
-                pose_deg = [math.degrees(v) for v in pybullet.getEulerFromQuaternion(pose_quat)]
+                quat_rel = _quat_mul(_quat_conj(q_jaw), pose_quat)
                 idx = i + 1
                 pose = {
                     "waypoint": i,
                     "label": lbl,
-                    "tcp_pos": list(pose_pos),
-                    "tcp_euler_deg": pose_deg,
-                    "tcp_quat": list(pose_quat),
+                    "tcp_pos_rel": _to_jaw_frame(r_jaw, jaw_pos, pose_pos),
+                    "quat_rel": quat_rel,
+                    "view_dir_rel": _view_dir(quat_rel),
+                    "q_from_neutral": _quat_mul(_quat_conj(q_neutral), quat_rel),
                 }
                 with open(os.path.join(scan_dir, f"{idx}_pose.json"), "w") as f:
                     json.dump(pose, f, indent=2)
