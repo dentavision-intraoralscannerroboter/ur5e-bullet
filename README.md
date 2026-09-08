@@ -68,7 +68,7 @@ position and load the jaw.
 | `s <speed>`            | Global speed (default 0.5)                    |
 | `@`                    | Reset to last joint config (after manual drag)|
 | `start <name>`         | Move to start position, load jaw              |
-| `jaw <nr> [upper|lower]` | Load jaw from `data/meshes_jaws/<nr>` (only after `start`) |
+| `jaw <nr> [upper/lower]` | Load jaw from `data/meshes_jaws/<nr>` (only after `start`) |
 | `+ [n]` / `- [n]`      | Next / previous waypoint (only after `start`) |
 | `render`               | Render scene in Blender (Cycles, stereo)      |
 | `q`                    | Quit                                          |
