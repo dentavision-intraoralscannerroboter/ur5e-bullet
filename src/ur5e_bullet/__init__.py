@@ -604,6 +604,7 @@ def demo_simulation():
             with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
                 json.dump(settings, f, indent=2)
             print(f"  → Scan-Ordner: {scan_dir}")
+            scan_t0 = time.time()
             # ── Phase 1: Rückweg zum Waypoint 0 entlang der Kurve (kein Render) ──
             print("  → Rückweg zum Waypoint 0...")
             while waypoint_idx > 0:
@@ -649,6 +650,9 @@ def demo_simulation():
                     break
                 done += 1
                 waypoint_idx = i
+            settings["render_duration_s"] = round(time.time() - scan_t0, 1)
+            with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
+                json.dump(settings, f, indent=2)
             print(f"  ✔ Scan fertig: {scan_dir} ({done} Waypoints, {rendered} gerendert, {skipped} übersprungen)")
             continue
 
