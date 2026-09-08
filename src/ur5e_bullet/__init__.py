@@ -533,14 +533,16 @@ def demo_simulation():
                 if waypoint_idx + 1 >= len(wps):
                     print(f"  → Pfad-Ende ({len(wps)} Waypoints)")
                     break
-                waypoint_idx += 1
-                wp = wps[waypoint_idx]
-                lbl = wp.get("name") or wp.get("label", str(waypoint_idx + 1))
-                print(f"  → {current_start} {lbl} ({waypoint_idx+1}/{len(wps)})...")
+                target = waypoint_idx + 1
+                wp = wps[target]
+                lbl = wp.get("name") or wp.get("label", str(target + 1))
+                print(f"  → {current_start} {lbl} ({target+1}/{len(wps)})...")
                 wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
                 ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
                 if not ok:
-                    print(f"  ⛔ {current_start} {lbl} nicht erreichbar")
+                    print(f"  ⛔ {current_start} {lbl} nicht erreichbar – Navigation abgebrochen")
+                    break
+                waypoint_idx = target
             reset_overlay()
             continue
         if cmd.action == "waypoint_prev":
@@ -557,14 +559,16 @@ def demo_simulation():
                 if waypoint_idx <= 0:
                     print(f"  → Startposition erreicht")
                     break
-                waypoint_idx -= 1
-                wp = wps[waypoint_idx]
-                lbl = wp.get("name") or wp.get("label", str(waypoint_idx + 1))
-                print(f"  → {current_start} {lbl} ({waypoint_idx+1}/{len(wps)}) zurueck...")
+                target = waypoint_idx - 1
+                wp = wps[target]
+                lbl = wp.get("name") or wp.get("label", str(target + 1))
+                print(f"  → {current_start} {lbl} ({target+1}/{len(wps)}) zurueck...")
                 wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
                 ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
                 if not ok:
-                    print(f"  ⛔ {current_start} {lbl} nicht erreichbar")
+                    print(f"  ⛔ {current_start} {lbl} nicht erreichbar – Navigation abgebrochen")
+                    break
+                waypoint_idx = target
             reset_overlay()
             continue
 

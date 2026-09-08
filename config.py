@@ -141,7 +141,7 @@ JOINTS = [
 
 
 START_POSITIONS = {
-    "aussen1low": {
+    "a1l": {
         "tcp_pos":  [0.616, 0, 0.296],
         "tcp_ori_deg": [180, 90, 0],
         "approach": [
@@ -153,13 +153,13 @@ START_POSITIONS = {
         "jaw_folder": 1,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_at_jaw": True,
         "look_target": [0.662, 0.0],
         "parabola":  {"x0": 0.616, "a": 0.047, "z": 0.296, "n": 21, "y_max": 0.037, "power": 4},
         "ori_anchors": {"start": [90, 0, 0], "mid": [180, 90, 0], "end": [-90, 0, 0]},
-        "look_at_jaw": True,
         "view": {"apply": True, "distance": 0.1, "yaw": 90.0, "pitch": -89.0, "target": [0.65, 0.0, 0.3]},
     },
-    "aussen2low": {
+    "a2l": {
         "tcp_pos":  [0.619, 0, 0.297],
         "tcp_ori_deg": [180, 90, 0],
         "approach": [
@@ -171,10 +171,10 @@ START_POSITIONS = {
         "jaw_folder": 2,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_at_jaw": True,
         "look_target": [0.662, 0.0],
         "parabola":  {"x0": 0.619, "a": 0.05, "z": 0.297, "n": 21, "y_max": 0.039, "power": 4}, #37
         "ori_anchors": {"start": [90, 0, 0], "mid": [180, 90, 0], "end": [-90, 0, 0]},
-        "look_at_jaw": True,
         "view": {"apply": True, "distance": 1.0, "yaw": 90.0, "pitch": -25.0, "target": [0.66, 0.0, 0.35]},
     },
     "aussen2": {
@@ -188,13 +188,13 @@ START_POSITIONS = {
         "jaw_folder": 1,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_at_jaw": True,
         "look_target": [0.65, 0.0],
         "parabola":  {"x0": 0.615, "a": 0.0463, "z": 0.295, "n": 21, "y_max": 0.05, "power": 4},
         "ori_anchors": {"start": [90, 0, 0], "mid": [180, 90, 0], "end": [-90, 0, 0]},
-        "look_at_jaw": True,
         "view": {"apply": True, "distance": 1.0, "yaw": 90.0, "pitch": -25.0, "target": [0.65, 0.0, 0.35]},
     },
-    "oben": {
+    "o1l": {
         "tcp_pos":  [0.8265, 0.0, 0.31],
         "tcp_ori_deg": [0, 0, 0],
         "approach": [],
@@ -203,10 +203,10 @@ START_POSITIONS = {
         "jaw_folder": 1,
         "jaw_type":  "lower",
         "generator": parabola_waypoints,
+        "look_at_jaw": False,
         "look_target": [0.862, 0.0],
         "parabola":  {"x0": 0.8265, "a": 0.04, "z": 0.31, "n": 21, "y_max": 0.023, "power": 2},
         "ori_anchors": {"start": [0 , 0, 0], "mid": [0, 0, 0], "end": [0, 0, 0]},
-        "look_at_jaw": False,
         "view": {"apply": True, "distance": 0.1, "yaw": 90.0, "pitch": -89.0, "target": [0.85, 0.0, 0.3]},},
     "innen": {
         "tcp_pos":  [0.78, -0.05, 0.29],
