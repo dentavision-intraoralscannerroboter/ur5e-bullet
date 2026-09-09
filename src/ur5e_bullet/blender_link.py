@@ -5,8 +5,14 @@ import subprocess
 import sys
 import threading
 
-_PKG_DIR = os.path.dirname(os.path.abspath(__file__))
-MIRROR_SCRIPT = os.path.join(_PKG_DIR, "..", "..", "blender", "mirror.py")
+import importlib.util as _ilu
+_cfg = _ilu.spec_from_file_location(
+    "config",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+)
+_cfg_mod = _ilu.module_from_spec(_cfg)
+_cfg.loader.exec_module(_cfg_mod)
+MIRROR_SCRIPT = _cfg_mod.MIRROR_SCRIPT
 
 
 class BlenderMirror:

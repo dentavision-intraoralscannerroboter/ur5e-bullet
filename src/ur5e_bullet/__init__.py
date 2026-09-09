@@ -12,9 +12,10 @@ from .sim import (
 )
 
 import importlib.util as _ilu
-_pkg_dir = os.path.dirname(os.path.abspath(__file__))
-_proj_root = os.path.join(_pkg_dir, "..", "..")
-_cfg_spec = _ilu.spec_from_file_location("config", os.path.join(_proj_root, "config.py"))
+_cfg_spec = _ilu.spec_from_file_location(
+    "config",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+)
 _cfg_mod = _ilu.module_from_spec(_cfg_spec)
 _cfg_spec.loader.exec_module(_cfg_mod)
 START_POSITIONS = _cfg_mod.START_POSITIONS
@@ -44,7 +45,7 @@ CAMERA_SENSOR_W_MM = _cfg_mod.CAMERA_SENSOR_W_MM
 CAMERA_SENSOR_H_MM = _cfg_mod.CAMERA_SENSOR_H_MM
 CAMERA_ROLL_DEG = _cfg_mod.CAMERA_ROLL_DEG
 
-RENDER_DIR = os.path.join(_proj_root, "render")
+RENDER_DIR = _cfg_mod.RENDER_DIR
 
 
 def _draw_crosshair(pos, color, items, label=None):

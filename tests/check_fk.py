@@ -19,12 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "blender"))
 import rig
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-rig.SCRIPT_DIR = os.path.join(ROOT, "blender")
-rig.ROOT = ROOT
-rig.POSE_JSON = os.path.join(ROOT, "data", "urdf_data.json")
-rig.OBJ_DIR = os.path.join(ROOT, "data", "meshes")
-
 LINKS = [
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
     "wrist_1_joint", "wrist_2_joint", "wrist_3_joint",

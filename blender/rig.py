@@ -28,8 +28,7 @@ def _script_dir():
 
 SCRIPT_DIR = _script_dir()
 
-ROOT = os.path.dirname(SCRIPT_DIR)
-sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
 from config import (
     GEBISS_SCALE,
     GEBISS_ROUGHNESS, GEBISS_SPECULAR,
@@ -39,14 +38,13 @@ from config import (
     LIGHT_POWER, LIGHT_OFFSET,
     RENDER_W, RENDER_H, RENDER_ENGINE, RENDER_DEVICE, RENDER_TRANSPARENT,
     TOOL_OFFSET_POS, S,
+    URDF_DATA_JSON, MESH_DIR, JAWS_DIR, SCANNER_STAB_STL,
 )
 
 CAMERA_ROLL = math.radians(CAMERA_ROLL_DEG)
 CAMERA_SENSOR_W = CAMERA_SENSOR_W_MM
 CAMERA_SENSOR_H = CAMERA_SENSOR_H_MM
 CAMERA_FOV = math.radians(CAMERA_FOV_DEG)
-POSE_JSON = os.path.join(ROOT, "data", "urdf_data.json")
-OBJ_DIR = os.path.join(ROOT, "data", "meshes")
 
 MESH_ROTATIONS = {
     "base_link": (math.radians(90), 0, 0),
@@ -97,7 +95,7 @@ def clear_scene():
 
 
 def load_urdf_data():
-    with open(POSE_JSON) as f:
+    with open(URDF_DATA_JSON) as f:
         return json.load(f)
 
 
@@ -105,7 +103,7 @@ def import_meshes(data):
     meshes = {}
     link_mesh_map = data["link_mesh_map"]
     for link_name, obj_name in link_mesh_map.items():
-        path = os.path.join(OBJ_DIR, obj_name)
+        path = os.path.join(MESH_DIR, obj_name)
         if not os.path.exists(path):
             print(f"  - {link_name}: Datei fehlt ({path}), erzeuge Platzhalter")
             bpy.ops.mesh.primitive_uv_sphere_add(radius=0.03 * S, location=(0, 0, 0))
@@ -222,7 +220,7 @@ def _import_stl(path):
 
 
 def add_scanner_and_camera(arm_obj, meshes):
-    scanner_path = os.path.join(ROOT, "src", "ur5e_bullet", "ur_e_description", "meshes", "scanner-stab.stl")
+    scanner_path = SCANNER_STAB_STL
     if not os.path.exists(scanner_path):
         print("  - scanner-stab.stl nicht gefunden")
         return
@@ -362,7 +360,7 @@ def replace_jaw(folder=1, jaw_type="lower", pos=None, euler_deg=None):
         _jaw_log("  ! Keine Gebisspos/Orientierung uebergeben – Gebiss nicht platziert")
         return False
 
-    stl_path = os.path.join(ROOT, "data", "meshes_jaws", str(folder), f"{jaw_type}.stl")
+    stl_path = os.path.join(JAWS_DIR, str(folder), f"{jaw_type}.stl")
     if not os.path.exists(stl_path):
         _jaw_log(f"  - Jaw fehlt: {stl_path}")
         return False
@@ -463,7 +461,6 @@ def main():
 
     bpy.context.scene.frame_set(1)
     print("\nFertig! UR5e riggt.")
-    print("Animation: blender/animate.py im Scripting-Tab oeffnen und Run Script")
 
 
 if __name__ == "__main__":

@@ -14,6 +14,16 @@ _wp_spec.loader.exec_module(_wp_mod)
 parabola_waypoints = _wp_mod.parabola_waypoints
 
 
+# ── Gemeinsame Pfade (alle Module) ─────────────────────────────────────────
+ROBOT_URDF_PATH = os.path.join(PKG_DIR, "src", "ur5e_bullet", "ur_e_description", "urdf", "ur5e.urdf")
+JAWS_DIR = os.path.join(PKG_DIR, "data", "meshes_jaws")
+URDF_DATA_JSON = os.path.join(PKG_DIR, "data", "urdf_data.json")
+MESH_DIR = os.path.join(PKG_DIR, "data", "meshes")
+SCANNER_STAB_STL = os.path.join(PKG_DIR, "src", "ur5e_bullet", "ur_e_description", "meshes", "scanner-stab.stl")
+MIRROR_SCRIPT = os.path.join(PKG_DIR, "blender", "mirror.py")
+RENDER_DIR = os.path.join(PKG_DIR, "render")
+
+
 # ── Nur sim.py ─────────────────────────────────────────────────────────────
 # ── Tool-Offset (Scanner → TCP) ──
 TOOL_OFFSET_POS = [0.213, 0, -0.006]

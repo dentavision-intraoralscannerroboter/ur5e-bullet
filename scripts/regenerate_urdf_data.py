@@ -6,9 +6,11 @@ import sys
 
 import pybullet
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-URDF = os.path.join(ROOT, "src", "ur5e_bullet", "ur_e_description", "urdf", "ur5e.urdf")
-OUT = os.path.join(ROOT, "data", "urdf_data.json")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import ROBOT_URDF_PATH, URDF_DATA_JSON
+
+URDF = ROBOT_URDF_PATH
+OUT = URDF_DATA_JSON
 
 MOVABLE = {
     1: ("shoulder_pan_joint", "world_joint", "shoulder_link"),

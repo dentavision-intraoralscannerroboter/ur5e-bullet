@@ -16,15 +16,15 @@ from pybullet_planning.interfaces.robots.joint import get_movable_joints
 from .blender_link import BlenderMirror
 from .decimate_stl import read_stl, decimate, write_stl
 
-_PKG_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.join(_PKG_DIR, "..", "..")
-_JAWS_DIR = os.path.join(_PROJECT_ROOT, "data", "meshes_jaws")
-ROBOT_URDF_PATH = os.path.join(_PKG_DIR, "ur_e_description", "urdf", "ur5e.urdf")
-
 import importlib.util as _ilu
-_cfg = _ilu.spec_from_file_location("config", os.path.join(_PROJECT_ROOT, "config.py"))
+_cfg = _ilu.spec_from_file_location(
+    "config",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+)
 _cfg_mod = _ilu.module_from_spec(_cfg)
 _cfg.loader.exec_module(_cfg_mod)
+ROBOT_URDF_PATH = _cfg_mod.ROBOT_URDF_PATH
+JAWS_DIR = _cfg_mod.JAWS_DIR
 GEBISS_SCALE = _cfg_mod.GEBISS_SCALE
 GEBISS_COLL_CELL = _cfg_mod.GEBISS_COLL_CELL
 TOOL_OFFSET_POS = _cfg_mod.TOOL_OFFSET_POS
@@ -116,10 +116,10 @@ class UR5Sim():
 
     @staticmethod
     def _resolve_jaw_paths(folder, jaw_type="lower"):
-        stl = os.path.join(_JAWS_DIR, str(folder), f"{jaw_type}.stl")
+        stl = os.path.join(JAWS_DIR, str(folder), f"{jaw_type}.stl")
         if not os.path.exists(stl):
             raise FileNotFoundError(f"Jaw STL nicht gefunden: {stl}")
-        coll_stl = os.path.join(_JAWS_DIR, str(folder), f"{jaw_type}_coll.stl")
+        coll_stl = os.path.join(JAWS_DIR, str(folder), f"{jaw_type}_coll.stl")
         if not os.path.exists(coll_stl):
             print(f"  ~ {jaw_type}_coll.stl fehlt – generiere...")
             verts, tris = read_stl(stl)
