@@ -96,7 +96,6 @@ class UR5Sim():
         self.tool_offset_pos = list(TOOL_OFFSET_POS)
         self.tool_offset_orn = list(TOOL_OFFSET_ORN)
         self._last_conf = None
-        self._last_target = None
         if mirror is None:
             mirror = gui
         self._mirror = BlenderMirror(self) if mirror else None
@@ -204,18 +203,6 @@ class UR5Sim():
                 return True
         return False
 
-    def set_joint_angles(self, joint_angles):
-        pybullet.setJointMotorControlArray(
-            self.ur5, self._joint_ids,
-            pybullet.POSITION_CONTROL,
-            targetPositions=joint_angles,
-            targetVelocities=[0]*6,
-            positionGains=[0.04]*6,
-            forces=[self.joints[n].maxForce for n in self.control_joints],
-        )
-        if self._mirror is not None:
-            self._mirror.send_current()
-
     def get_joint_angles(self):
         return [s[0] for s in pybullet.getJointStates(self.ur5, [1, 2, 3, 4, 5, 6])]
 
@@ -294,7 +281,7 @@ class UR5Sim():
         for i, val in zip(self._joint_ids, saved):
             pybullet.resetJointState(self.ur5, i, val)
         dx = math.sqrt(sum((ls[0][i] - ee_pose[0][i])**2 for i in range(3)))
-        if dx > 0.08:
+        if dx > IK_TOLERANCE:
             return None
         return conf
 
@@ -342,7 +329,6 @@ class UR5Sim():
         _color_links(self)
 
     def _probe_rrt(self, target_pos, target_ori, seed=None):
-        start_tcp, _ = self.get_tcp_pose()
         original_joint_positions = [s[0] for s in pybullet.getJointStates(self.ur5, self._joint_ids)]
         ee_target = self._tcp_to_ee(target_pos, target_ori)
         render_flag = pybullet.COV_ENABLE_RENDERING
@@ -356,7 +342,7 @@ class UR5Sim():
             pybullet.configureDebugVisualizer(render_flag, 1)
             for j, v in zip(self._joint_ids, original_joint_positions):
                 pybullet.resetJointState(self.ur5, j, v)
-            return start_tcp, target_pos, 0.0, target_pos, None, None
+            return None, None
 
         devnull_fd = os.open(os.devnull, os.O_WRONLY)
         saved_stderr_fd = os.dup(2)
@@ -383,12 +369,12 @@ class UR5Sim():
             for j, v in zip(self._joint_ids, original_joint_positions):
                 pybullet.resetJointState(self.ur5, j, v)
             pybullet.configureDebugVisualizer(render_flag, 1)
-            return target_pos, None, 0.0, target_pos, tcp_waypoints, path
+            return tcp_waypoints, path
 
         for j, v in zip(self._joint_ids, original_joint_positions):
             pybullet.resetJointState(self.ur5, j, v)
         pybullet.configureDebugVisualizer(render_flag, 1)
-        return start_tcp, target_pos, 0.0, target_pos, None, None
+        return None, None
 
     def _probe_path(self, target_pos, target_ori, seed=None):
         if self._mirror is not None:
@@ -495,7 +481,6 @@ class UR5Sim():
 
     def _save_last(self, tcp_pos, tcp_ori):
         self._last_conf = [s[0] for s in pybullet.getJointStates(self.ur5, self._joint_ids)]
-        self._last_target = (tcp_pos, tcp_ori)
         if self._mirror is not None:
             self._mirror.send_current()
 
@@ -508,12 +493,6 @@ class UR5Sim():
     def set_tool_offset(self, pos, ori=(0, 0, 0, 1)):
         self.tool_offset_pos = list(pos)
         self.tool_offset_orn = list(ori)
-        if self._mirror is not None:
-            self._mirror.send_current()
-
-    def clear_tool_offset(self):
-        self.tool_offset_pos = None
-        self.tool_offset_orn = None
         if self._mirror is not None:
             self._mirror.send_current()
 

@@ -33,7 +33,7 @@ from config import (
     GEBISS_SCALE,
     GEBISS_ROUGHNESS, GEBISS_SPECULAR,
     CAMERA_ROLL_DEG, CAMERA_SENSOR_W_MM, CAMERA_SENSOR_H_MM,
-    CAMERA_FOV_DEG, CAMERA_LENS_MM, CAMERA_NEAR_M, CAMERA_FAR_M, CAMERA_DISPLAY_M,
+    CAMERA_FOV_DEG, CAMERA_NEAR_M, CAMERA_FAR_M, CAMERA_DISPLAY_M,
     CAMERA_LATERAL_OFFSET,
     LIGHT_POWER, LIGHT_OFFSET,
     RENDER_W, RENDER_H, RENDER_ENGINE, RENDER_DEVICE, RENDER_TRANSPARENT,
@@ -74,16 +74,6 @@ JOINT_AXIS_INDEX = {
     "wrist_2_joint": 2,
     "wrist_3_joint": 1,
 }
-
-JOINT_PARENT = {
-    "shoulder_pan_joint": None,
-    "shoulder_lift_joint": "shoulder_pan_joint",
-    "elbow_joint": "shoulder_lift_joint",
-    "wrist_1_joint": "elbow_joint",
-    "wrist_2_joint": "wrist_1_joint",
-    "wrist_3_joint": "wrist_2_joint",
-}
-
 
 def clear_scene():
     bpy.ops.object.select_all(action="SELECT")

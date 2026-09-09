@@ -273,7 +273,7 @@ def demo_simulation():
 
     def draw_tcp():
         pos, _ = sim.get_tcp_pose()
-        return _draw_crosshair(pos, [0, 1, 0], [])
+        _draw_crosshair(pos, [0, 1, 0], [])
 
     def _remove_view_stick():
         nonlocal view_stick_id
@@ -378,14 +378,12 @@ def demo_simulation():
         """Entfernt ALLE Debug-Items (auch verwaiste "Geister") via
         removeAllUserDebugItems und zeichnet das TCP-Crosshair neu.
         Die persistenten Waypoint-Bodies sind davon unberuehrt und bleiben stehen."""
-        nonlocal tcp_items
         pybullet.removeAllUserDebugItems()
         items.clear()
-        tcp_items.clear()
-        tcp_items = draw_tcp()
+        draw_tcp()
         draw_view_stick()
 
-    def draw_probe_preview(rrt_waypoints, start_tcp, target_position, target_orientation):
+    def draw_probe_preview(rrt_waypoints, target_position):
         if rrt_waypoints:
             step = max(1, len(rrt_waypoints) // 20)
             for i in range(0, len(rrt_waypoints)-step, step):
@@ -394,7 +392,6 @@ def demo_simulation():
                 ))
         else:
             print(f"  ⚠ Kein RRT-Pfad zu ({target_position[0]:.3f}, {target_position[1]:.3f}, {target_position[2]:.3f})")
-        return target_position, target_orientation
 
     def preview_and_move(pos, ori, speed, seed=None, confirm=False):
         """Gemeinsamer Ablauf fuer den m-Befehl (confirm=True, mit Rueckfrage)
@@ -410,12 +407,10 @@ def demo_simulation():
         os.dup2(saved_fds[0], 1), os.dup2(saved_fds[1], 2)
         os.close(devnull_fd)
 
-        start_tcp, _, _, _, rrt_waypoints, plan_path = probe_result
+        rrt_waypoints, plan_path = probe_result
         _draw_crosshair(pos, [1, 1, 0], items,
                         f"({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
-        target_pos, target_ori = draw_probe_preview(
-            rrt_waypoints, start_tcp, pos, ori,
-        )
+        draw_probe_preview(rrt_waypoints, pos)
         ok = False
         if plan_path is not None:
             if confirm:
@@ -425,10 +420,10 @@ def demo_simulation():
                     reset_overlay()
                     return None
                 if c in ("", "y", "yes"):
-                    ok = sim.move_to(target_pos, target_ori, speed=speed, path=plan_path)
+                    ok = sim.move_to(pos, ori, speed=speed, path=plan_path)
             else:
                 time.sleep(PREVIEW_PAUSE)
-                ok = sim.move_to(target_pos, target_ori, speed=speed, path=plan_path)
+                ok = sim.move_to(pos, ori, speed=speed, path=plan_path)
         reset_overlay()
         return ok
 
@@ -447,10 +442,7 @@ def demo_simulation():
     items = []
     waypoint_bodies = []
     look_target_body_id = None
-    tcp_items = []
     view_stick_id = None
-    current_start = None
-    waypoint_idx = 0
 
     if BOOT_START is not None:
         cfg = BOOT_START
@@ -504,6 +496,9 @@ def demo_simulation():
             reset_overlay()
             continue
         if cmd.action == "render":
+            if sim._mirror is None:
+                print("  ? Blender-Sync deaktiviert – kein Render möglich (ENABLE_BLENDER_SYNC=False)")
+                continue
             sim._mirror._render_done.clear()
             sim._mirror.send_message({"render": True})
             print("  Render gestartet...")
