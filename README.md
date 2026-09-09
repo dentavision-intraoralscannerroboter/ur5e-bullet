@@ -42,8 +42,8 @@ scanner are then synchronized over a TCP socket:
   (`blender --python blender/mirror.py -- --port=...`) when the mirror is enabled.
 - The 3D viewport attaches to `ScannerCamera_R`
   (`ATTACH_VIEWPORT_TO_CAMERA=True`) and follows the camera view axis.
-- The `render` command renders left/right stereo frames via Cycles on the GPU
-  (`RENDER_DEVICE="GPU"`, output `render_L.png` / `render_R.png`).
+- Scans render left/right stereo frames via Cycles on the GPU
+  (`RENDER_DEVICE="GPU"`), stored under `render/{...}` folders.
 - If Blender is missing, the mirror is disabled and the simulation keeps
   running; set `ENABLE_BLENDER_SYNC=False` to disable the sync entirely.
 
@@ -120,7 +120,10 @@ waypoints.py              waypoint generators (parabola_waypoints)
 src/ur5e_bullet/          pybullet simulation package (__init__.py = CLI + demo_simulation)
   sim.py                  UR5Sim (physics, IK, RRT, mirror)
   blender_link.py         TCP-socket mirror → Blender
+  visualize_scan.py       3D-Plot der Kamerasichtachsen aus scan pose.json
+                          (CLI `visualize-scan <scan_dir|render/> [--out png|dir]`)
 blender/                  Blender-side scripts (mirror.py, rig.py)
+scripts/                  standalone tools (regenerate_urdf_data.py)
 data/                     robot description (URDF + meshes), arm/mesh assets, jaw meshes
 archive/                  Archived, unused scripts and assets (git-ignored)
 tests/                    FK / IK checks

@@ -225,7 +225,7 @@ CAMERA_FAR_M = 0.03
 CAMERA_DISPLAY_M = 0.2
 
 # ── Licht ──
-LIGHT_POWER = 0.001
+LIGHT_POWER = 0.0009
 LIGHT_OFFSET = [0.008, 0.025, 0.213]
 
 # ── Material Gebiss ──

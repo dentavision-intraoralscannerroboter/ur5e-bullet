@@ -147,8 +147,6 @@ def _parse_command(tokens):
         return Command("speed", {"speed": max(speed, 0.01)})
     if tokens[0] == "@":
         return Command("reset", {})
-    if tokens[0] == "render":
-        return Command("render", {})
     if tokens[0] == "scan":
         if len(tokens) == 1:
             return Command("scan", {})
@@ -460,7 +458,6 @@ def demo_simulation():
     print("  Tool-Offset: 'o x y z' (z. B. o 0 0 0.15)")
     print("  Geschw.:     's 0.5' (global, Default 0.5)")
     print("  Reset:       '@'  (nach manuellem Ziehen)")
-    print("  Render:      'render' (Cycles-Render in Blender)")
     print("  Gebiss:      'jaw <nr> [upper|lower]' (z. B. jaw 3 upper)")
     print("  Start:       'start <Aussen|Oben|Innen>' (Startposition anfahren)")
     print("  Waypoints:   '+'/'-' naechster/vorheriger Waypoint")
@@ -494,15 +491,6 @@ def demo_simulation():
             current_speed = cmd.params["speed"]
             print(f"  Geschwindigkeit: {current_speed:.2f}")
             reset_overlay()
-            continue
-        if cmd.action == "render":
-            if sim._mirror is None:
-                print("  ? Blender-Sync deaktiviert – kein Render möglich (ENABLE_BLENDER_SYNC=False)")
-                continue
-            sim._mirror._render_done.clear()
-            sim._mirror.send_message({"render": True})
-            print("  Render gestartet...")
-            sim._mirror._render_done.wait(timeout=300)
             continue
         if cmd.action == "jaw":
             if current_start is None:

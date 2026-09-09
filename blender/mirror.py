@@ -156,16 +156,13 @@ def poll():
                 print("[mirror] Render bereits aktiv – Nachricht ignoriert")
                 return 0.05
             r = msg["render"]
-            if isinstance(r, dict) and r.get("left") and r.get("right"):
-                _render_plan = [
-                    ("ScannerCamera_L", r["left"]),
-                    ("ScannerCamera_R", r["right"]),
-                ]
-            else:
-                _render_plan = [
-                    ("ScannerCamera_L", "render_L.png"),
-                    ("ScannerCamera_R", "render_R.png"),
-                ]
+            if not isinstance(r, dict) or not r.get("left") or not r.get("right"):
+                print("[mirror] Render-Nachricht ohne left/right-Pfade – ignoriert")
+                return 0.05
+            _render_plan = [
+                ("ScannerCamera_L", r["left"]),
+                ("ScannerCamera_R", r["right"]),
+            ]
             _render_tile_count = 0
             _render_remaining = len(_render_plan)
             _render_paths = []
