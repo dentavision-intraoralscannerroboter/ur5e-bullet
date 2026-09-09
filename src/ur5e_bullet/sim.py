@@ -14,6 +14,7 @@ from pybullet_planning.interfaces.robots.link import get_self_link_pairs
 from pybullet_planning.interfaces.robots.joint import get_movable_joints
 
 from .blender_link import BlenderMirror
+from ._console import status, status_end
 from .decimate_stl import read_stl, decimate, write_stl
 
 import importlib.util as _ilu
@@ -325,17 +326,19 @@ class UR5Sim():
         return None
 
     def _execute(self, path, speed=1.0):
-        for conf in path:
-            for j, v in zip(self._joint_ids, conf):
-                pybullet.resetJointState(self.ur5, j, v)
-            pybullet.stepSimulation()
-            if self._mirror is not None:
-                self._mirror.send_current()
-            pos, _ = self.get_tcp_pose()
-            print(f"\rX {pos[0]:.3f} Y {pos[1]:.3f} Z {pos[2]:.3f}  {_joint_deviation_line(self, short=True)}", end="", flush=True)
-            if speed > 0:
-                time.sleep(0.01 / speed)
-        print()
+        try:
+            for conf in path:
+                for j, v in zip(self._joint_ids, conf):
+                    pybullet.resetJointState(self.ur5, j, v)
+                pybullet.stepSimulation()
+                if self._mirror is not None:
+                    self._mirror.send_current()
+                pos, _ = self.get_tcp_pose()
+                status(f"X {pos[0]:.3f} Y {pos[1]:.3f} Z {pos[2]:.3f}  {_joint_deviation_line(self, short=True)}")
+                if speed > 0:
+                    time.sleep(0.01 / speed)
+        finally:
+            status_end()
         _color_links(self)
 
     def _probe_rrt(self, target_pos, target_ori, seed=None):

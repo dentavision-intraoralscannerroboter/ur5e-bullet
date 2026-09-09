@@ -7,6 +7,8 @@ import sys
 import threading
 import time
 
+from ._console import log, progress, progress_done
+
 import importlib.util as _ilu
 _cfg = _ilu.spec_from_file_location(
     "config",
@@ -17,6 +19,7 @@ _cfg.loader.exec_module(_cfg_mod)
 MIRROR_SCRIPT = _cfg_mod.MIRROR_SCRIPT
 
 MIRROR_CONNECT_WARN_S = 30
+_PROJECT_ROOT = _cfg_mod.PROJECT_ROOT
 _ERROR_MARKERS = (
     "Traceback", "Error:", "Exception:", "AttributeError", "NameError",
     "TypeError", "ValueError", "ImportError", "ModuleNotFoundError",
@@ -29,12 +32,10 @@ def _is_error_line(text):
     return any(m in text for m in _ERROR_MARKERS)
 
 
-def _print_tail(lines, tag):
+def _tail_text(lines, tag):
     if not lines:
-        print(f"  ({tag}: keine Ausgabe vorhanden)")
-        return
-    for line in list(lines):
-        print(f"  {tag}: {line}")
+        return f"  ({tag}: keine Ausgabe vorhanden)"
+    return "\n".join(f"  {tag}: {line}" for line in list(lines))
 
 
 class BlenderMirror:
@@ -74,7 +75,7 @@ class BlenderMirror:
 
     def _launch_blender(self, port):
         if not os.path.exists(MIRROR_SCRIPT):
-            print("[mirror] blender/mirror.py nicht gefunden – Mirror deaktiviert")
+            log("[mirror] blender/mirror.py nicht gefunden – Mirror deaktiviert")
             return None
         try:
             proc = subprocess.Popen(
@@ -82,7 +83,7 @@ class BlenderMirror:
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True,
             )
         except (OSError, FileNotFoundError):
-            print("[mirror] Blender konnte nicht gestartet werden – Mirror deaktiviert")
+            log("[mirror] Blender konnte nicht gestartet werden – Mirror deaktiviert")
             return None
         return proc
 
@@ -93,18 +94,35 @@ class BlenderMirror:
                 if text:
                     self._stdout_tail.append(text)
                     if text.startswith("[mirror]"):
-                        print(text)
+                        log(text)
         except (OSError, ValueError):
             pass
 
     def _drain_stderr(self):
+        block = None
+        block_related = False
         try:
             for line in self._proc.stderr:
                 text = line.decode("utf-8", "ignore").rstrip("\n")
-                if text:
-                    self._stderr_tail.append(text)
-                    if _is_error_line(text):
-                        print(text)
+                if not text:
+                    continue
+                self._stderr_tail.append(text)
+                if text.startswith("Traceback "):
+                    block = [text]
+                    block_related = _PROJECT_ROOT in text
+                    continue
+                if block is not None:
+                    block.append(text)
+                    if _PROJECT_ROOT in text:
+                        block_related = True
+                    if not text[0].isspace():
+                        if block_related:
+                            log("\n".join(block))
+                        block = None
+                        block_related = False
+                    continue
+                if _is_error_line(text) and _PROJECT_ROOT in text:
+                    log(text)
         except (OSError, ValueError):
             pass
 
@@ -118,15 +136,15 @@ class BlenderMirror:
                     break
                 except socket.timeout:
                     if self._proc.poll() is not None:
-                        print("[mirror] Blender-Mirror hat sich OHNE Verbindung beendet – Log:")
-                        _print_tail(self._stdout_tail, "stdout")
-                        _print_tail(self._stderr_tail, "stderr")
+                        log("[mirror] Blender-Mirror hat sich OHNE Verbindung beendet – Log:")
+                        log(_tail_text(self._stdout_tail, "stdout"))
+                        log(_tail_text(self._stderr_tail, "stderr"))
                         return
                     if not self._connect_warned and (
                         time.monotonic() - self._connect_start > MIRROR_CONNECT_WARN_S
                     ):
                         self._connect_warned = True
-                        print(
+                        log(
                             f"[mirror] Warnung: Nach {MIRROR_CONNECT_WARN_S}s noch keine "
                             "Blender-Verbindung – warte weiter…"
                         )
@@ -173,17 +191,17 @@ class BlenderMirror:
     def _handle_host_msg(self, msg):
         if "render_progress" in msg:
             n = msg['render_progress']
-            print(f"\r  Rendering... [{n}]", end="", flush=True)
+            progress(f"  Rendering... [{n}]")
         if "render_complete" in msg:
             paths = msg["render_complete"]
             if isinstance(paths, str):
                 paths = [paths]
-            print("\n  Render gespeichert: " + ", ".join(paths))
+            progress_done("  Render gespeichert: " + ", ".join(paths))
             self._render_done.set()
         if "jaw_complete" in msg:
             self._jaw_done.set()
             if "jaw_log" in msg and msg.get("jaw_log"):
-                print(msg["jaw_log"])
+                log(msg["jaw_log"])
 
     def send_current(self):
         try:
