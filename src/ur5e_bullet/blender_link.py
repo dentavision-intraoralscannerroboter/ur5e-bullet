@@ -1,9 +1,11 @@
+import collections
 import json
 import os
 import socket
 import subprocess
 import sys
 import threading
+import time
 
 import importlib.util as _ilu
 _cfg = _ilu.spec_from_file_location(
@@ -13,6 +15,26 @@ _cfg = _ilu.spec_from_file_location(
 _cfg_mod = _ilu.module_from_spec(_cfg)
 _cfg.loader.exec_module(_cfg_mod)
 MIRROR_SCRIPT = _cfg_mod.MIRROR_SCRIPT
+
+MIRROR_CONNECT_WARN_S = 30
+_ERROR_MARKERS = (
+    "Traceback", "Error:", "Exception:", "AttributeError", "NameError",
+    "TypeError", "ValueError", "ImportError", "ModuleNotFoundError",
+    "SyntaxError", "OSError", "KeyError", "IndexError", "RuntimeError",
+    "AssertionError",
+)
+
+
+def _is_error_line(text):
+    return any(m in text for m in _ERROR_MARKERS)
+
+
+def _print_tail(lines, tag):
+    if not lines:
+        print(f"  ({tag}: keine Ausgabe vorhanden)")
+        return
+    for line in list(lines):
+        print(f"  {tag}: {line}")
 
 
 class BlenderMirror:
@@ -39,6 +61,15 @@ class BlenderMirror:
             self.close()
             return
 
+        self._stdout_tail = collections.deque(maxlen=50)
+        self._stderr_tail = collections.deque(maxlen=50)
+        self._connect_warned = False
+        self._connect_start = time.monotonic()
+
+        if self._proc.stdout is not None:
+            threading.Thread(target=self._drain_stdout, daemon=True).start()
+        if self._proc.stderr is not None:
+            threading.Thread(target=self._drain_stderr, daemon=True).start()
         threading.Thread(target=self._accept_loop, daemon=True).start()
 
     def _launch_blender(self, port):
@@ -46,15 +77,36 @@ class BlenderMirror:
             print("[mirror] blender/mirror.py nicht gefunden – Mirror deaktiviert")
             return None
         try:
-            devnull = open(os.devnull, "w")
             proc = subprocess.Popen(
                 ["blender", "--python", MIRROR_SCRIPT, "--", f"--port={port}"],
-                stdout=devnull, stderr=devnull, close_fds=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True,
             )
         except (OSError, FileNotFoundError):
             print("[mirror] Blender konnte nicht gestartet werden – Mirror deaktiviert")
             return None
         return proc
+
+    def _drain_stdout(self):
+        try:
+            for line in self._proc.stdout:
+                text = line.decode("utf-8", "ignore").rstrip("\n")
+                if text:
+                    self._stdout_tail.append(text)
+                    if text.startswith("[mirror]"):
+                        print(text)
+        except (OSError, ValueError):
+            pass
+
+    def _drain_stderr(self):
+        try:
+            for line in self._proc.stderr:
+                text = line.decode("utf-8", "ignore").rstrip("\n")
+                if text:
+                    self._stderr_tail.append(text)
+                    if _is_error_line(text):
+                        print(text)
+        except (OSError, ValueError):
+            pass
 
     def _accept_loop(self):
         buf = b""
@@ -65,6 +117,19 @@ class BlenderMirror:
                     conn, _ = self._sock.accept()
                     break
                 except socket.timeout:
+                    if self._proc.poll() is not None:
+                        print("[mirror] Blender-Mirror hat sich OHNE Verbindung beendet – Log:")
+                        _print_tail(self._stdout_tail, "stdout")
+                        _print_tail(self._stderr_tail, "stderr")
+                        return
+                    if not self._connect_warned and (
+                        time.monotonic() - self._connect_start > MIRROR_CONNECT_WARN_S
+                    ):
+                        self._connect_warned = True
+                        print(
+                            f"[mirror] Warnung: Nach {MIRROR_CONNECT_WARN_S}s noch keine "
+                            "Blender-Verbindung – warte weiter…"
+                        )
                     continue
             if conn is None:
                 return
