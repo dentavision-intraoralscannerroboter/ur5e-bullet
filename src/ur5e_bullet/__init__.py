@@ -159,6 +159,16 @@ def _parse_command(tokens):
             print("  ? Anzahl Waypoints muss >= 1 sein")
             return Command("error", {})
         return Command("scan", {"max_waypoints": n})
+    if tokens[0] == "scan-all":
+        if len(tokens) < 2:
+            print(f"  ? Verwende: scan-all <start1> [start2 ...]")
+            return Command("error", {})
+        names = tokens[1:]
+        unknown = [n for n in names if n not in START_POSITIONS]
+        if unknown:
+            print(f"  ? Unbekannte Startposition(en): {', '.join(unknown)} – verfügbar: {', '.join(START_POSITIONS.keys())}")
+            return Command("error", {})
+        return Command("scan_all", {"names": names})
     if tokens[0] == "jaw":
         if len(tokens) < 2:
             print("  ? 'jaw <nr> [upper|lower]' erwartet")
@@ -462,11 +472,171 @@ def demo_simulation():
     print("  Start:       'start <Aussen|Oben|Innen>' (Startposition anfahren)")
     print("  Waypoints:   '+'/'-' naechster/vorheriger Waypoint")
     print("  Scan:        'scan [n]' (alle bzw. nur die ersten n Waypoints + L/R rendern)")
+    print("  Scan-All:    'scan-all <start1> [start2 ...]' (Startpositionen der Reihe nach scannen)")
     print("────────────────────────────────────────────")
     current_start = None
     waypoint_idx = 0
     current_speed = 0.5
     reset_overlay()
+
+    def _do_start(name):
+        nonlocal current_start, waypoint_idx
+        cfg = START_POSITIONS[name]
+        tcp_ori = [math.radians(v) for v in cfg["tcp_ori_deg"]]
+        print("  → jaw entfernt...")
+        sim.unload_jaw()
+        if sim._mirror is not None:
+            sim._mirror.send_message({"jaw_unload": True})
+
+        def _dump_pose(tag, pos, ori_deg):
+            q = pybullet.getQuaternionFromEuler(ori_deg)
+            ee = sim._tcp_to_ee(list(pos), list(ori_deg))
+            joints = sim.get_joint_angles()
+            jstr = ", ".join(f"{math.degrees(j):.0f}" for j in joints)
+            print(f"    [dbg {tag}] tcp=({pos[0]:.3f},{pos[1]:.3f},{pos[2]:.3f}) euler_deg=({math.degrees(ori_deg[0]):.0f},{math.degrees(ori_deg[1]):.0f},{math.degrees(ori_deg[2]):.0f})")
+            print(f"    [dbg {tag}] quat=({q[0]:.3f},{q[1]:.3f},{q[2]:.3f},{q[3]:.3f})")
+            print(f"    [dbg {tag}] ee_pos=({ee[0][0]:.3f},{ee[0][1]:.3f},{ee[0][2]:.3f})")
+            print(f"    [dbg {tag}] joints_deg={jstr}")
+
+        approach = cfg.get("approach", [])
+        start_seed = sim._null_space[3]
+        for i, a in enumerate(approach):
+            a_ori = [math.radians(v) for v in a["tcp_ori_deg"]]
+            lbl = a.get("label", str(i + 1))
+            print(f"  → approach {lbl}...")
+            _dump_pose(f"approach{lbl}", a["tcp_pos"], a_ori)
+            a_seed = None if a.get("use_current_seed") else start_seed
+            ok = preview_and_move(a["tcp_pos"], a_ori, current_speed, seed=a_seed)
+            if not ok:
+                print(f"  ⛔ Approach {lbl} nicht erreichbar – start abgebrochen")
+                continue
+        print(f"  → fahre zu {name}-Start...")
+        _dump_pose("final", cfg["tcp_pos"], tcp_ori)
+        ok = preview_and_move(cfg["tcp_pos"], tcp_ori, current_speed, seed=start_seed)
+        if not ok:
+            print(f"  ⛔ {name}-Start nicht erreichbar – start abgebrochen")
+            return False
+        jpos = cfg["jaw_pos"]
+        jeuler = [math.radians(v) for v in cfg["jaw_euler_deg"]]
+        sim.load_jaw_at(cfg["jaw_folder"], cfg["jaw_type"], jpos, jeuler)
+        if sim._mirror is not None:
+            sim._mirror._jaw_done.clear()
+            sim._mirror.send_message({"replace_jaw": {"folder": cfg["jaw_folder"], "type": cfg["jaw_type"], "pos": jpos, "euler": cfg["jaw_euler_deg"]}})
+            sim._mirror._jaw_done.wait(timeout=10)
+            sim._mirror.send_current()
+        print(f"  → jaw eingefuegt ({cfg['jaw_type']}, pos=({jpos[0]:.3f}, {jpos[1]:.3f}, {jpos[2]:.3f}))")
+        current_start = name
+        waypoint_idx = 10
+        wps = _resolve_waypoints(cfg)
+        print(f"  Waypoints: {len(wps)}")
+        for i, wp in enumerate(wps):
+            print(f"    {i+1}: {wp.get('name') or wp.get('label', str(i+1))} ({wp['tcp_pos'][0]:.3f}, {wp['tcp_pos'][1]:.3f}, {wp['tcp_pos'][2]:.3f})")
+        _set_view(cfg)
+        reset_overlay()
+        draw_waypoints()
+        return True
+
+    def _do_scan(max_waypoints=None):
+        nonlocal waypoint_idx
+        render_ok = True
+        if current_start is None:
+            print("  ? Keine Startposition aktiv – zuerst 'start <name>'")
+            return render_ok, 0, 0, 0
+        cfg = START_POSITIONS[current_start]
+        all_wps = _resolve_waypoints(cfg)
+        wps = all_wps[:max_waypoints] if max_waypoints else all_wps
+        if not wps:
+            print(f"  ? Keine Waypoints definiert fuer {current_start}")
+            return render_ok, 0, 0, 0
+        jaw_folder = cfg["jaw_folder"]
+        jaw_type = cfg["jaw_type"]
+        jaw_pos = cfg["jaw_pos"]
+        jaw_euler_deg = cfg["jaw_euler_deg"]
+        q_jaw = pybullet.getQuaternionFromEuler([math.radians(v) for v in jaw_euler_deg])
+        r_jaw = pybullet.getMatrixFromQuaternion(q_jaw)
+        ordner = f"{jaw_type}_{jaw_folder}_{current_start}_{RENDER_W}x{RENDER_H}_lat{CAMERA_LATERAL_OFFSET*1000:.1f}mm"
+        scan_dir = os.path.join(RENDER_DIR, ordner)
+        os.makedirs(scan_dir, exist_ok=True)
+        settings = {
+            "render_w": RENDER_W,
+            "render_h": RENDER_H,
+            "render_engine": RENDER_ENGINE,
+            "render_device": RENDER_DEVICE,
+            "camera_lateral_offset": CAMERA_LATERAL_OFFSET,
+            "camera_fov_deg": CAMERA_FOV_DEG,
+            "camera_lens_mm": CAMERA_LENS_MM,
+            "rectified": True,
+            "lens_distortion": False,
+            "world_unit": "m",
+            "baseline_m": round(2 * CAMERA_LATERAL_OFFSET, 6),
+            "camera_intrinsic": _camera_intrinsic(),
+            "start_position": current_start,
+            "jaw_folder": jaw_folder,
+            "jaw_type": jaw_type,
+            "jaw_pos": list(jaw_pos),
+            "jaw_euler_deg": list(jaw_euler_deg),
+            "jaw_quat": list(q_jaw),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
+            json.dump(settings, f, indent=2)
+        print(f"  → Scan-Ordner: {scan_dir}")
+        scan_t0 = time.time()
+        # ── Phase 1: Rückweg zum Waypoint 0 entlang der Kurve (kein Render) ──
+        print("  → Rückweg zum Waypoint 0...")
+        while waypoint_idx > 0:
+            wp = all_wps[waypoint_idx - 1]
+            lbl = wp.get("name") or wp.get("label", str(waypoint_idx))
+            print(f"  → {current_start} {lbl} ({waypoint_idx}/{len(wps)})...")
+            wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
+            ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
+            if not ok:
+                print(f"  ⛔ Rückweg abgebrochen ({lbl} nicht erreichbar)")
+                break
+            waypoint_idx -= 1
+        # ── Phase 2: Sweep W0→max mit Render an jedem Waypoint ──
+        done = rendered = skipped = 0
+        for i, wp in enumerate(wps):
+            lbl = wp.get("name") or wp.get("label", str(i + 1))
+            print(f"  → scan {current_start} {lbl} ({i+1}/{len(wps)})...")
+            wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
+            if i != waypoint_idx:
+                ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
+                if not ok:
+                    skipped += 1
+                    print(f"  ⛔ {current_start} {lbl} nicht erreichbar – übersprungen")
+                    continue
+            idx = i + 1
+            cam_l, cam_r = _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw)
+            pose = {
+                "waypoint": i,
+                "label": lbl,
+                "camera_left": {
+                    "position": cam_l[0],
+                    "quaternion": cam_l[1],
+                },
+                "camera_right": {
+                    "position": cam_r[0],
+                    "quaternion": cam_r[1],
+                },
+            }
+            with open(os.path.join(scan_dir, f"{idx}_pose.json"), "w") as f:
+                json.dump(pose, f, indent=2)
+            rel_left = os.path.join("render", ordner, f"{idx}A_render.png")
+            rel_right = os.path.join("render", ordner, f"{idx}B_render.png")
+            if _render_pair(rel_left, rel_right):
+                rendered += 1
+            else:
+                print("  ⛔ Render fehlgeschlagen – Scan abgebrochen")
+                render_ok = False
+                break
+            done += 1
+            waypoint_idx = i
+        settings["render_duration_s"] = round(time.time() - scan_t0, 1)
+        with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
+            json.dump(settings, f, indent=2)
+        print(f"  ✔ Scan fertig: {scan_dir} ({done} Waypoints, {rendered} gerendert, {skipped} übersprungen)")
+        return render_ok, done, rendered, skipped
 
     while True:
         try:
@@ -516,60 +686,7 @@ def demo_simulation():
             reset_overlay()
             continue
         if cmd.action == "start_pos":
-            name = cmd.params["name"]
-            cfg = START_POSITIONS[name]
-            tcp_ori = [math.radians(v) for v in cfg["tcp_ori_deg"]]
-            print(f"  → jaw entfernt...")
-            sim.unload_jaw()
-            if sim._mirror is not None:
-                sim._mirror.send_message({"jaw_unload": True})
-
-            def _dump_pose(tag, pos, ori_deg):
-                q = pybullet.getQuaternionFromEuler(ori_deg)
-                ee = sim._tcp_to_ee(list(pos), list(ori_deg))
-                joints = sim.get_joint_angles()
-                jstr = ", ".join(f"{math.degrees(j):.0f}" for j in joints)
-                print(f"    [dbg {tag}] tcp=({pos[0]:.3f},{pos[1]:.3f},{pos[2]:.3f}) euler_deg=({math.degrees(ori_deg[0]):.0f},{math.degrees(ori_deg[1]):.0f},{math.degrees(ori_deg[2]):.0f})")
-                print(f"    [dbg {tag}] quat=({q[0]:.3f},{q[1]:.3f},{q[2]:.3f},{q[3]:.3f})")
-                print(f"    [dbg {tag}] ee_pos=({ee[0][0]:.3f},{ee[0][1]:.3f},{ee[0][2]:.3f})")
-                print(f"    [dbg {tag}] joints_deg={jstr}")
-
-            approach = cfg.get("approach", [])
-            start_seed = sim._null_space[3]
-            for i, a in enumerate(approach):
-                a_ori = [math.radians(v) for v in a["tcp_ori_deg"]]
-                lbl = a.get("label", str(i + 1))
-                print(f"  → approach {lbl}...")
-                _dump_pose(f"approach{lbl}", a["tcp_pos"], a_ori)
-                a_seed = None if a.get("use_current_seed") else start_seed
-                ok = preview_and_move(a["tcp_pos"], a_ori, current_speed, seed=a_seed)
-                if not ok:
-                    print(f"  ⛔ Approach {lbl} nicht erreichbar – start abgebrochen")
-                    continue
-            print(f"  → fahre zu {name}-Start...")
-            _dump_pose(f"final", cfg["tcp_pos"], tcp_ori)
-            ok = preview_and_move(cfg["tcp_pos"], tcp_ori, current_speed, seed=start_seed)
-            if not ok:
-                print(f"  ⛔ {name}-Start nicht erreichbar – start abgebrochen")
-                continue
-            jpos = cfg["jaw_pos"]
-            jeuler = [math.radians(v) for v in cfg["jaw_euler_deg"]]
-            sim.load_jaw_at(cfg["jaw_folder"], cfg["jaw_type"], jpos, jeuler)
-            if sim._mirror is not None:
-                sim._mirror._jaw_done.clear()
-                sim._mirror.send_message({"replace_jaw": {"folder": cfg["jaw_folder"], "type": cfg["jaw_type"], "pos": jpos, "euler": cfg["jaw_euler_deg"]}})
-                sim._mirror._jaw_done.wait(timeout=10)
-                sim._mirror.send_current()
-            print(f"  → jaw eingefuegt ({cfg['jaw_type']}, pos=({jpos[0]:.3f}, {jpos[1]:.3f}, {jpos[2]:.3f}))")
-            current_start = name
-            waypoint_idx = 10
-            wps = _resolve_waypoints(cfg)
-            print(f"  Waypoints: {len(wps)}")
-            for i, wp in enumerate(wps):
-                print(f"    {i+1}: {wp.get('name') or wp.get('label', str(i+1))} ({wp['tcp_pos'][0]:.3f}, {wp['tcp_pos'][1]:.3f}, {wp['tcp_pos'][2]:.3f})")
-            _set_view(cfg)
-            reset_overlay()
-            draw_waypoints()
+            _do_start(cmd.params["name"])
             continue
         if cmd.action == "waypoint_next":
             if current_start is None:
@@ -625,104 +742,18 @@ def demo_simulation():
             continue
 
         if cmd.action == "scan":
-            if current_start is None:
-                print("  ? Keine Startposition aktiv – zuerst 'start <name>'")
-                continue
-            cfg = START_POSITIONS[current_start]
-            all_wps = _resolve_waypoints(cfg)
-            wps = all_wps
-            if "max_waypoints" in cmd.params:
-                wps = all_wps[:cmd.params["max_waypoints"]]
-            if not wps:
-                print(f"  ? Keine Waypoints definiert fuer {current_start}")
-                continue
-            jaw_folder = cfg["jaw_folder"]
-            jaw_type = cfg["jaw_type"]
-            jaw_pos = cfg["jaw_pos"]
-            jaw_euler_deg = cfg["jaw_euler_deg"]
-            q_jaw = pybullet.getQuaternionFromEuler([math.radians(v) for v in jaw_euler_deg])
-            r_jaw = pybullet.getMatrixFromQuaternion(q_jaw)
-            ordner = f"{jaw_type}_{jaw_folder}_{current_start}_{RENDER_W}x{RENDER_H}_lat{CAMERA_LATERAL_OFFSET*1000:.1f}mm"
-            scan_dir = os.path.join(RENDER_DIR, ordner)
-            os.makedirs(scan_dir, exist_ok=True)
-            settings = {
-                "render_w": RENDER_W,
-                "render_h": RENDER_H,
-                "render_engine": RENDER_ENGINE,
-                "render_device": RENDER_DEVICE,
-                "camera_lateral_offset": CAMERA_LATERAL_OFFSET,
-                "camera_fov_deg": CAMERA_FOV_DEG,
-                "camera_lens_mm": CAMERA_LENS_MM,
-                "rectified": True,
-                "lens_distortion": False,
-                "world_unit": "m",
-                "baseline_m": round(2 * CAMERA_LATERAL_OFFSET, 6),
-                "camera_intrinsic": _camera_intrinsic(),
-                "start_position": current_start,
-                "jaw_folder": jaw_folder,
-                "jaw_type": jaw_type,
-                "jaw_pos": list(jaw_pos),
-                "jaw_euler_deg": list(jaw_euler_deg),
-                "jaw_quat": list(q_jaw),
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
-                json.dump(settings, f, indent=2)
-            print(f"  → Scan-Ordner: {scan_dir}")
-            scan_t0 = time.time()
-            # ── Phase 1: Rückweg zum Waypoint 0 entlang der Kurve (kein Render) ──
-            print("  → Rückweg zum Waypoint 0...")
-            while waypoint_idx > 0:
-                wp = all_wps[waypoint_idx - 1]
-                lbl = wp.get("name") or wp.get("label", str(waypoint_idx))
-                print(f"  → {current_start} {lbl} ({waypoint_idx}/{len(wps)})...")
-                wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
-                ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
-                if not ok:
-                    print(f"  ⛔ Rückweg abgebrochen ({lbl} nicht erreichbar)")
+            _do_scan(cmd.params.get("max_waypoints"))
+            continue
+        if cmd.action == "scan_all":
+            for name in cmd.params["names"]:
+                print(f"── scan-all: {name} ──")
+                if not _do_start(name):
+                    print(f"  ⛔ {name}-Start nicht erreichbar – übersprungen")
+                    continue
+                render_ok, done, rendered, skipped = _do_scan()
+                if not render_ok:
+                    print(f"  ⛔ Batch abgebrochen (Render-Fehler bei {name})")
                     break
-                waypoint_idx -= 1
-            # ── Phase 2: Sweep W0→max mit Render an jedem Waypoint ──
-            done = rendered = skipped = 0
-            for i, wp in enumerate(wps):
-                lbl = wp.get("name") or wp.get("label", str(i + 1))
-                print(f"  → scan {current_start} {lbl} ({i+1}/{len(wps)})...")
-                wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
-                if i != waypoint_idx:
-                    ok = preview_and_move(wp["tcp_pos"], wp_ori, current_speed)
-                    if not ok:
-                        skipped += 1
-                        print(f"  ⛔ {current_start} {lbl} nicht erreichbar – übersprungen")
-                        continue
-                idx = i + 1
-                cam_l, cam_r = _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw)
-                pose = {
-                    "waypoint": i,
-                    "label": lbl,
-                    "camera_left": {
-                        "position": cam_l[0],
-                        "quaternion": cam_l[1],
-                    },
-                    "camera_right": {
-                        "position": cam_r[0],
-                        "quaternion": cam_r[1],
-                    },
-                }
-                with open(os.path.join(scan_dir, f"{idx}_pose.json"), "w") as f:
-                    json.dump(pose, f, indent=2)
-                rel_left = os.path.join("render", ordner, f"{idx}A_render.png")
-                rel_right = os.path.join("render", ordner, f"{idx}B_render.png")
-                if _render_pair(rel_left, rel_right):
-                    rendered += 1
-                else:
-                    print("  ⛔ Render fehlgeschlagen – Scan abgebrochen")
-                    break
-                done += 1
-                waypoint_idx = i
-            settings["render_duration_s"] = round(time.time() - scan_t0, 1)
-            with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
-                json.dump(settings, f, indent=2)
-            print(f"  ✔ Scan fertig: {scan_dir} ({done} Waypoints, {rendered} gerendert, {skipped} übersprungen)")
             continue
 
         if cmd.action == "error":

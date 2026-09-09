@@ -71,9 +71,10 @@ position and load the jaw.
 | `jaw <nr> [upper/lower]` | Load jaw from `data/meshes_jaws/<nr>` (only after `start`) |
 | `+ [n]` / `- [n]`      | Next / previous waypoint (only after `start`) |
 | `scan`                 | Drive all waypoints (0..max), save TCP poses and render L/R at each (only after `start`) |
+| `scan-all <start1> [start2 ...]` | `start` + full `scan` for each given position in sequence (unreachable ones are skipped, render failure aborts) |
 | `q`                    | Quit                                          |
 
-Available start positions: `aussen1low`, `aussen2low`, `aussen2`, `oben`, `innen`.
+Available start positions: `a1l`, `a2l`, `aussen2`, `o1l`, `innen`.
 
 ## Configuration (`config.py`)
 
