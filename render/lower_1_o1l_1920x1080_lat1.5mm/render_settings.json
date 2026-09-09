@@ -1,0 +1,47 @@
+{
+  "render_w": 1920,
+  "render_h": 1080,
+  "render_engine": "CYCLES",
+  "render_device": "GPU",
+  "camera_lateral_offset": 0.0015,
+  "camera_offset": [
+    0.008,
+    0,
+    0.213
+  ],
+  "tool_offset_pos": [
+    0.213,
+    0,
+    -0.006
+  ],
+  "camera_fov_deg": 87,
+  "camera_lens_mm": 18.968042255057323,
+  "start_position": "o1l",
+  "jaw_folder": 1,
+  "jaw_type": "lower",
+  "jaw_pos": [
+    0.85,
+    0,
+    0.3
+  ],
+  "jaw_euler_deg": [
+    0,
+    0,
+    90
+  ],
+  "jaw_quat": [
+    0.0,
+    0.0,
+    0.7071067811865475,
+    0.7071067811865476
+  ],
+  "neutral_quat": [
+    -0.5000000000000001,
+    0.4999999999999999,
+    0.5000000000000001,
+    0.4999999999999999
+  ],
+  "neutral_desc": "view axis horizontal toward aim point (look_target or jaw xy) from mid waypoint, roll 0",
+  "timestamp": "2026-09-09 01:11:14",
+  "render_duration_s": 8100.6
+}
