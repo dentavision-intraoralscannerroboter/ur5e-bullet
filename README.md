@@ -78,28 +78,18 @@ Available start positions: `aussen1low`, `aussen2low`, `aussen2`, `oben`, `innen
 
 ## Configuration (`config.py`)
 
-All simulation, rendering and scan parameters live in `config.py`.
+All simulation, rendering and scan parameters live in `config.py`. The file is
+sorted by consumer: values used by only one module first, shared values below.
 
-| Section | Keys |
-|---------|------|
-| Paths | `PKG_DIR`, `JAWS_DIR`, `ROBOT_URDF_PATH` |
-| Jaw (dental model) | `GEBISS_SCALE`, `GEBISS_COLL_CELL`, `GEBISS_ROUGHNESS`, `GEBISS_SPECULAR` |
-| Boot start | `BOOT_START` (`tcp_pos`, `tcp_ori_deg` in deg) — `None` disables |
-| Camera (RealSense D455) | `CAMERA_ROLL_DEG`, `CAMERA_SENSOR_W_MM`, `CAMERA_SENSOR_H_MM`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_NEAR_M`, `CAMERA_FAR_M`, `CAMERA_DISPLAY_M`, `CAMERA_LATERAL_OFFSET` |
-| Light | `LIGHT_POWER`, `LIGHT_OFFSET` |
-| Render | `RENDER_W`, `RENDER_H`, `RENDER_ENGINE`, `RENDER_DEVICE`, `RENDER_TRANSPARENT` |
-| Tool offset | `TOOL_OFFSET_POS`, `TOOL_OFFSET_ORN`, `CAMERA_OFFSET` |
-| Blender sync | `ENABLE_BLENDER_SYNC` |
-| Socket | `SOCKET_HOST`, `SOCKET_BUFFER`, `SOCKET_POLL_INTERVAL` |
-| RRT planner | `RRT_RESTARTS`, `RRT_SMOOTH`, `RRT_SEED` |
-| Scale factor | `S` (Blender units per meter) |
-| Pybullet misc | `IK_LAMBDA`, `IK_TOLERANCE`, `GHOST_COLOR`, `PREVIEW_PAUSE`, `WAYPOINT_MARKER_RADIUS` |
-| Viewport | `ATTACH_VIEWPORT_TO_CAMERA` |
-| Pybullet GUI camera | `PB_CAMERA_DISTANCE`, `PB_CAMERA_YAW`, `PB_CAMERA_PITCH`, `PB_CAMERA_TARGET_POS` |
-| Debug view axis | `DRAW_VIEW_STICK`, `VIEW_STICK_LENGTH`, `VIEW_STICK_RADIUS`, `VIEW_STICK_COLOR` |
-| Look target | `LOOK_TARGET_RADIUS`, `LOOK_TARGET_COLOR` |
-| Joint limits | `JOINTS` (`lower_deg`, `upper_deg`, `rest_deg` per joint, order = joint order) |
-| Scan positions | `START_POSITIONS` (see below) |
+| Consumer | Keys |
+|----------|------|
+| `sim.py` only | `TOOL_OFFSET_POS`, `TOOL_OFFSET_ORN` · `GEBISS_COLL_CELL` · `IK_LAMBDA`, `IK_TOLERANCE` · `RRT_RESTARTS`, `RRT_SMOOTH`, `RRT_SEED` · `JOINTS` (`lower_deg`, `upper_deg`, `rest_deg` per joint, order = joint order) |
+| `sim.py` + `__init__.py` | `PB_CAMERA_DISTANCE`, `PB_CAMERA_YAW`, `PB_CAMERA_PITCH`, `PB_CAMERA_TARGET_POS` |
+| `sim.py` + `blender/rig.py` | `GEBISS_SCALE` |
+| `__init__.py` only | `BOOT_START` (`tcp_pos`, `tcp_ori_deg` in deg) — `None` disables · `RENDER_TIMEOUT` · `PREVIEW_PAUSE`, `WAYPOINT_MARKER_RADIUS` · `ENABLE_BLENDER_SYNC` · `DRAW_VIEW_STICK`, `VIEW_STICK_LENGTH`, `VIEW_STICK_RADIUS`, `VIEW_STICK_COLOR` · `LOOK_TARGET_RADIUS`, `LOOK_TARGET_COLOR` · `START_POSITIONS` (see below) |
+| `__init__.py` + `blender/rig.py` | `CAMERA_ROLL_DEG`, `CAMERA_SENSOR_W_MM`, `CAMERA_SENSOR_H_MM`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_LATERAL_OFFSET` · `RENDER_W`, `RENDER_H`, `RENDER_ENGINE`, `RENDER_DEVICE` |
+| `blender/rig.py` only | `S` (Blender units per meter) · `CAMERA_NEAR_M`, `CAMERA_FAR_M`, `CAMERA_DISPLAY_M` · `LIGHT_POWER`, `LIGHT_OFFSET` · `GEBISS_ROUGHNESS`, `GEBISS_SPECULAR` · `RENDER_TRANSPARENT` |
+| `blender/mirror.py` only | `SOCKET_BUFFER`, `SOCKET_POLL_INTERVAL` · `ATTACH_VIEWPORT_TO_CAMERA` |
 
 Only edit `config.py`; the values are forwarded into the live session.
 

@@ -49,11 +49,12 @@
     0.7071067811865476
   ],
   "neutral_quat": [
-    -0.5000000000000001,
-    0.4999999999999999,
-    0.5000000000000001,
-    0.4999999999999999
+    -0.703809749658958,
+    -0.06820437145077243,
+    0.703809749658958,
+    -0.06820437145077243
   ],
   "neutral_desc": "view axis horizontal toward aim point (look_target or jaw xy) from mid waypoint, roll 0",
-  "timestamp": "2026-09-09 14:34:02"
+  "timestamp": "2026-09-09 14:44:08",
+  "render_duration_s": 456.0
 }
