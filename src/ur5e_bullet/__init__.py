@@ -42,6 +42,9 @@ CAMERA_OFFSET = _cfg_mod.CAMERA_OFFSET
 TOOL_OFFSET_POS = _cfg_mod.TOOL_OFFSET_POS
 CAMERA_FOV_DEG = _cfg_mod.CAMERA_FOV_DEG
 CAMERA_LENS_MM = _cfg_mod.CAMERA_LENS_MM
+CAMERA_SENSOR_W_MM = _cfg_mod.CAMERA_SENSOR_W_MM
+CAMERA_SENSOR_H_MM = _cfg_mod.CAMERA_SENSOR_H_MM
+CAMERA_ROLL_DEG = _cfg_mod.CAMERA_ROLL_DEG
 
 RENDER_DIR = os.path.join(_proj_root, "render")
 
@@ -148,6 +151,43 @@ def _build_neutral_quat(wps, cfg, r_jaw, jaw_pos):
     ]
     r_neutral = [xe[0], ye[0], ze[0], xe[1], ye[1], ze[1], xe[2], ye[2], ze[2]]
     return _quat_from_mat(r_neutral)
+
+
+def _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw):
+    """L/R-Kamera-Posen im Gebiss-Frame, identisch zur Render-Platzierung.
+
+    Zur Renderzeit positioniert der Blender-Mirror die Kameras als
+    TCP-in-Scanner-Frame +/- CAMERA_LATERAL_OFFSET (mirror.py _apply_tcp),
+    mit fester Scanner->Kamera-Rotation (rig.py base_q @ cam_roll).
+    Scanner-Frame->Welt ueber den echten pybullet scanner_link."""
+    tcp_in_sc = sim.get_tcp_in_scanner_frame()
+    sc_id = sim.joints["scanner_joint"].id
+    sc_ls = pybullet.getLinkState(sim.ur5, sc_id, computeForwardKinematics=True)
+    sc_pos, sc_orn = list(sc_ls[4]), list(sc_ls[5])
+    q_base = pybullet.getQuaternionFromEuler([0.0, math.radians(-90.0), 0.0])
+    q_roll = pybullet.getQuaternionFromEuler([0.0, 0.0, math.radians(CAMERA_ROLL_DEG)])
+    q_cam_sc = _quat_mul(q_base, q_roll)
+    out = []
+    for sign in (-1.0, 1.0):
+        cam_sc = [tcp_in_sc[0], tcp_in_sc[1] + sign * CAMERA_LATERAL_OFFSET, tcp_in_sc[2]]
+        wpos, wori = pybullet.multiplyTransforms(sc_pos, sc_orn, cam_sc, q_cam_sc)
+        out.append((
+            _to_jaw_frame(r_jaw, jaw_pos, wpos),
+            _quat_mul(_quat_conj(q_jaw), wori),
+        ))
+    return out
+
+
+def _camera_intrinsic():
+    return {
+        "fx_px": round(RENDER_W / CAMERA_SENSOR_W_MM * CAMERA_LENS_MM, 2),
+        "fy_px": round(RENDER_H / CAMERA_SENSOR_H_MM * CAMERA_LENS_MM, 2),
+        "cx_px": round(RENDER_W / 2.0, 1),
+        "cy_px": round(RENDER_H / 2.0, 1),
+        "sensor_w_mm": CAMERA_SENSOR_W_MM,
+        "sensor_h_mm": CAMERA_SENSOR_H_MM,
+        "lens_mm": round(CAMERA_LENS_MM, 3),
+    }
 
 
 Command = namedtuple("Command", [
@@ -687,6 +727,11 @@ def demo_simulation():
                 "tool_offset_pos": list(TOOL_OFFSET_POS),
                 "camera_fov_deg": CAMERA_FOV_DEG,
                 "camera_lens_mm": CAMERA_LENS_MM,
+                "rectified": True,
+                "lens_distortion": False,
+                "world_unit": "m",
+                "baseline_m": round(2 * CAMERA_LATERAL_OFFSET, 6),
+                "camera_intrinsic": _camera_intrinsic(),
                 "start_position": current_start,
                 "jaw_folder": jaw_folder,
                 "jaw_type": jaw_type,
@@ -728,6 +773,7 @@ def demo_simulation():
                 pose_pos, pose_quat = sim.get_tcp_pose()
                 quat_rel = _quat_mul(_quat_conj(q_jaw), pose_quat)
                 idx = i + 1
+                cam_l, cam_r = _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw)
                 pose = {
                     "waypoint": i,
                     "label": lbl,
@@ -735,6 +781,14 @@ def demo_simulation():
                     "quat_rel": quat_rel,
                     "view_dir_rel": _view_dir(quat_rel),
                     "q_from_neutral": _quat_mul(_quat_conj(q_neutral), quat_rel),
+                    "camera_left": {
+                        "position": cam_l[0],
+                        "quaternion": cam_l[1],
+                    },
+                    "camera_right": {
+                        "position": cam_r[0],
+                        "quaternion": cam_r[1],
+                    },
                 }
                 with open(os.path.join(scan_dir, f"{idx}_pose.json"), "w") as f:
                     json.dump(pose, f, indent=2)

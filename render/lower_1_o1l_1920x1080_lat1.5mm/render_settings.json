@@ -16,6 +16,19 @@
   ],
   "camera_fov_deg": 87,
   "camera_lens_mm": 18.968042255057323,
+  "rectified": true,
+  "lens_distortion": false,
+  "world_unit": "m",
+  "baseline_m": 0.003,
+  "camera_intrinsic": {
+    "fx_px": 1011.63,
+    "fy_px": 1011.63,
+    "cx_px": 960.0,
+    "cy_px": 540.0,
+    "sensor_w_mm": 36.0,
+    "sensor_h_mm": 20.25,
+    "lens_mm": 18.968
+  },
   "start_position": "o1l",
   "jaw_folder": 1,
   "jaw_type": "lower",
@@ -42,6 +55,5 @@
     0.4999999999999999
   ],
   "neutral_desc": "view axis horizontal toward aim point (look_target or jaw xy) from mid waypoint, roll 0",
-  "timestamp": "2026-09-09 01:11:14",
-  "render_duration_s": 8100.6
+  "timestamp": "2026-09-09 14:34:02"
 }
