@@ -2,11 +2,15 @@
 
 import json
 import math
+import os
 import sys
 
 import pybullet
 
-URDF = "src/ur5e_bullet/ur_e_description/urdf/ur5e.urdf"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import ROBOT_URDF_PATH
+
+URDF = ROBOT_URDF_PATH
 
 LINKS = [
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",

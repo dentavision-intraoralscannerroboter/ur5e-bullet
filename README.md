@@ -35,7 +35,7 @@ pybullet build. Alternatives: the `pybullet-arm64` fork (wheels up to Python
 ## Blender prerequisite
 
 No `.blend` file is needed — the Blender scene is built procedurally from
-`data/urdf_data.json` and `data/meshes` (`blender/rig.py`) and the robot and
+`data/urdf_data.json` and `data/meshes_arm` (`blender/rig.py`) and the robot and
 scanner are then synchronized over a TCP socket:
 
 - `blender` must be on `PATH`; the simulation launches it automatically
@@ -83,7 +83,7 @@ sorted by consumer: values used by only one module first, shared values below.
 
 | Consumer | Keys |
 |----------|------|
-| all modules (shared paths) | `ROBOT_URDF_PATH`, `JAWS_DIR`, `URDF_DATA_JSON`, `MESH_DIR`, `SCANNER_STAB_STL`, `MIRROR_SCRIPT`, `RENDER_DIR` |
+| all modules (shared paths) | `PROJECT_ROOT`, `ROBOT_URDF_PATH`, `JAWS_DIR`, `BLENDER_URDF_DATA_JSON`, `ARM_MESH_DIR`, `SCANNER_STAB_STL`, `MIRROR_SCRIPT`, `RENDER_DIR` |
 | `sim.py` only | `TOOL_OFFSET_POS`, `TOOL_OFFSET_ORN` · `GEBISS_COLL_CELL` · `IK_LAMBDA`, `IK_TOLERANCE` · `RRT_RESTARTS`, `RRT_SMOOTH`, `RRT_SEED` · `JOINTS` (`lower_deg`, `upper_deg`, `rest_deg` per joint, order = joint order) |
 | `sim.py` + `__init__.py` | `PB_CAMERA_DISTANCE`, `PB_CAMERA_YAW`, `PB_CAMERA_PITCH`, `PB_CAMERA_TARGET_POS` |
 | `sim.py` + `blender/rig.py` | `GEBISS_SCALE` |
@@ -121,8 +121,8 @@ waypoints.py              waypoint generators (parabola_waypoints)
 src/ur5e_bullet/          pybullet simulation package (__init__.py = CLI + demo_simulation)
   sim.py                  UR5Sim (physics, IK, RRT, mirror)
   blender_link.py         TCP-socket mirror → Blender
-blender/                  Blender-side scripts (mirror.py, rig.py, decimate_stl.py)
-data/                     URDF data, robot meshes, jaw meshes (meshes_jaws/)
-archive/                  Archived, unused scripts (git-ignored)
+blender/                  Blender-side scripts (mirror.py, rig.py)
+data/                     robot description (URDF + meshes), arm/mesh assets, jaw meshes
+archive/                  Archived, unused scripts and assets (git-ignored)
 tests/                    FK / IK checks
 ```

@@ -7,8 +7,18 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rig
-sys.path.insert(0, rig.ROOT)
-from config import SOCKET_BUFFER, SOCKET_POLL_INTERVAL, ATTACH_VIEWPORT_TO_CAMERA
+
+import importlib.util as _ilu
+_cfg_spec = _ilu.spec_from_file_location(
+    "config",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.py"),
+)
+_cfg_mod = _ilu.module_from_spec(_cfg_spec)
+_cfg_spec.loader.exec_module(_cfg_mod)
+SOCKET_BUFFER = _cfg_mod.SOCKET_BUFFER
+SOCKET_POLL_INTERVAL = _cfg_mod.SOCKET_POLL_INTERVAL
+ATTACH_VIEWPORT_TO_CAMERA = _cfg_mod.ATTACH_VIEWPORT_TO_CAMERA
+PROJECT_ROOT = _cfg_mod.PROJECT_ROOT
 
 CONTROL_JOINTS = [
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
@@ -169,7 +179,7 @@ def poll():
                         cam = bpy.data.objects.get(cam_name)
                         if cam is not None:
                             bpy.context.scene.camera = cam
-                        path = os.path.join(rig.ROOT, rel)
+                        path = os.path.join(PROJECT_ROOT, rel)
                         d = os.path.dirname(path)
                         if d:
                             os.makedirs(d, exist_ok=True)

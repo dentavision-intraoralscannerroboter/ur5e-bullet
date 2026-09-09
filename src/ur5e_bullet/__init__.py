@@ -5,11 +5,7 @@ import time
 import pybullet
 from collections import namedtuple
 
-from .sim import (
-    UR5Sim,
-    ROBOT_URDF_PATH,
-    GEBISS_SCALE,
-)
+from .sim import UR5Sim
 
 import importlib.util as _ilu
 _cfg_spec = _ilu.spec_from_file_location(

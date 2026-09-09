@@ -4,16 +4,6 @@
   "render_engine": "CYCLES",
   "render_device": "GPU",
   "camera_lateral_offset": 0.0015,
-  "camera_offset": [
-    0.008,
-    0,
-    0.213
-  ],
-  "tool_offset_pos": [
-    0.213,
-    0,
-    -0.006
-  ],
   "camera_fov_deg": 87,
   "camera_lens_mm": 18.968042255057323,
   "rectified": true,
@@ -48,13 +38,6 @@
     0.7071067811865475,
     0.7071067811865476
   ],
-  "neutral_quat": [
-    -0.703809749658958,
-    -0.06820437145077243,
-    0.703809749658958,
-    -0.06820437145077243
-  ],
-  "neutral_desc": "view axis horizontal toward aim point (look_target or jaw xy) from mid waypoint, roll 0",
-  "timestamp": "2026-09-09 14:44:08",
-  "render_duration_s": 456.0
+  "timestamp": "2026-09-09 16:29:29",
+  "render_duration_s": 525.0
 }

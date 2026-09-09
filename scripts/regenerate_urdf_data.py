@@ -7,10 +7,10 @@ import sys
 import pybullet
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import ROBOT_URDF_PATH, URDF_DATA_JSON
+from config import ROBOT_URDF_PATH, BLENDER_URDF_DATA_JSON
 
 URDF = ROBOT_URDF_PATH
-OUT = URDF_DATA_JSON
+OUT = BLENDER_URDF_DATA_JSON
 
 MOVABLE = {
     1: ("shoulder_pan_joint", "world_joint", "shoulder_link"),

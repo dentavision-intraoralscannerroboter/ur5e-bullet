@@ -38,7 +38,7 @@ from config import (
     LIGHT_POWER, LIGHT_OFFSET,
     RENDER_W, RENDER_H, RENDER_ENGINE, RENDER_DEVICE, RENDER_TRANSPARENT,
     TOOL_OFFSET_POS, S,
-    URDF_DATA_JSON, MESH_DIR, JAWS_DIR, SCANNER_STAB_STL,
+    BLENDER_URDF_DATA_JSON, ARM_MESH_DIR, JAWS_DIR, SCANNER_STAB_STL,
 )
 
 CAMERA_ROLL = math.radians(CAMERA_ROLL_DEG)
@@ -95,7 +95,7 @@ def clear_scene():
 
 
 def load_urdf_data():
-    with open(URDF_DATA_JSON) as f:
+    with open(BLENDER_URDF_DATA_JSON) as f:
         return json.load(f)
 
 
@@ -103,7 +103,7 @@ def import_meshes(data):
     meshes = {}
     link_mesh_map = data["link_mesh_map"]
     for link_name, obj_name in link_mesh_map.items():
-        path = os.path.join(MESH_DIR, obj_name)
+        path = os.path.join(ARM_MESH_DIR, obj_name)
         if not os.path.exists(path):
             print(f"  - {link_name}: Datei fehlt ({path}), erzeuge Platzhalter")
             bpy.ops.mesh.primitive_uv_sphere_add(radius=0.03 * S, location=(0, 0, 0))
