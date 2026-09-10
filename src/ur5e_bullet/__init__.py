@@ -40,6 +40,7 @@ CAMERA_LENS_MM = _cfg_mod.CAMERA_LENS_MM
 CAMERA_SENSOR_W_MM = _cfg_mod.CAMERA_SENSOR_W_MM
 CAMERA_SENSOR_H_MM = _cfg_mod.CAMERA_SENSOR_H_MM
 CAMERA_ROLL_DEG = _cfg_mod.CAMERA_ROLL_DEG
+CAMERA_FAR_M = _cfg_mod.CAMERA_FAR_M
 
 RENDER_DIR = _cfg_mod.RENDER_DIR
 
@@ -558,25 +559,30 @@ def demo_simulation():
         scan_dir = os.path.join(RENDER_DIR, ordner)
         os.makedirs(scan_dir, exist_ok=True)
         settings = {
-            "render_w": RENDER_W,
-            "render_h": RENDER_H,
-            "render_engine": RENDER_ENGINE,
-            "render_device": RENDER_DEVICE,
-            "camera_lateral_offset": CAMERA_LATERAL_OFFSET,
-            "camera_fov_deg": CAMERA_FOV_DEG,
-            "camera_lens_mm": CAMERA_LENS_MM,
-            "rectified": True,
-            "lens_distortion": False,
-            "world_unit": "m",
-            "baseline_m": round(2 * CAMERA_LATERAL_OFFSET, 6),
-            "camera_intrinsic": _camera_intrinsic(),
-            "start_position": current_start,
-            "jaw_folder": jaw_folder,
-            "jaw_type": jaw_type,
-            "jaw_pos": list(jaw_pos),
-            "jaw_euler_deg": list(jaw_euler_deg),
-            "jaw_quat": list(q_jaw),
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "info": {
+                "start_position": current_start,
+                "jaw_folder": jaw_folder,
+                "jaw_type": jaw_type,
+                "jaw_pos": list(jaw_pos),
+                "jaw_euler_deg": list(jaw_euler_deg),
+                "jaw_quat": list(q_jaw),
+                "render_w": RENDER_W,
+                "render_h": RENDER_H,
+                "render_engine": RENDER_ENGINE,
+                "render_device": RENDER_DEVICE,
+                "world_unit": "m",
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            },
+            "reconstruction": {
+                "camera_lateral_offset": CAMERA_LATERAL_OFFSET,
+                "camera_fov_deg": CAMERA_FOV_DEG,
+                "camera_lens_mm": CAMERA_LENS_MM,
+                "camera_far_m": CAMERA_FAR_M,
+                "rectified": True,
+                "lens_distortion": False,
+                "baseline_m": round(2 * CAMERA_LATERAL_OFFSET, 6),
+                "camera_intrinsic": _camera_intrinsic(),
+            },
         }
         with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
             json.dump(settings, f, indent=2)
@@ -632,7 +638,7 @@ def demo_simulation():
                 break
             done += 1
             waypoint_idx = i
-        settings["render_duration_s"] = round(time.time() - scan_t0, 1)
+        settings["info"]["render_duration_s"] = round(time.time() - scan_t0, 1)
         with open(os.path.join(scan_dir, "render_settings.json"), "w") as f:
             json.dump(settings, f, indent=2)
         print(f"  ✔ Scan fertig: {scan_dir} ({done} Waypoints, {rendered} gerendert, {skipped} übersprungen)")

@@ -88,8 +88,8 @@ sorted by consumer: values used by only one module first, shared values below.
 | `sim.py` + `__init__.py` | `PB_CAMERA_DISTANCE`, `PB_CAMERA_YAW`, `PB_CAMERA_PITCH`, `PB_CAMERA_TARGET_POS` |
 | `sim.py` + `blender/rig.py` | `GEBISS_SCALE` |
 | `__init__.py` only | `BOOT_START` (`tcp_pos`, `tcp_ori_deg` in deg) — `None` disables · `RENDER_TIMEOUT` · `PREVIEW_PAUSE`, `WAYPOINT_MARKER_RADIUS` · `ENABLE_BLENDER_SYNC` · `DRAW_VIEW_STICK`, `VIEW_STICK_LENGTH`, `VIEW_STICK_RADIUS`, `VIEW_STICK_COLOR` · `LOOK_TARGET_RADIUS`, `LOOK_TARGET_COLOR` · `START_POSITIONS` (see below) |
-| `__init__.py` + `blender/rig.py` | `CAMERA_ROLL_DEG`, `CAMERA_SENSOR_W_MM`, `CAMERA_SENSOR_H_MM`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_LATERAL_OFFSET` · `RENDER_W`, `RENDER_H`, `RENDER_ENGINE`, `RENDER_DEVICE` |
-| `blender/rig.py` only | `S` (Blender units per meter) · `CAMERA_NEAR_M`, `CAMERA_FAR_M`, `CAMERA_DISPLAY_M` · `LIGHT_POWER`, `LIGHT_OFFSET` · `GEBISS_ROUGHNESS`, `GEBISS_SPECULAR` · `RENDER_TRANSPARENT` |
+| `__init__.py` + `blender/rig.py` | `CAMERA_ROLL_DEG`, `CAMERA_SENSOR_W_MM`, `CAMERA_SENSOR_H_MM`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_LATERAL_OFFSET`, `CAMERA_FAR_M` · `RENDER_W`, `RENDER_H`, `RENDER_ENGINE`, `RENDER_DEVICE` |
+| `blender/rig.py` only | `S` (Blender units per meter) · `CAMERA_NEAR_M`, `CAMERA_DISPLAY_M` · `LIGHT_POWER`, `LIGHT_OFFSET` · `GEBISS_ROUGHNESS`, `GEBISS_SPECULAR` · `RENDER_TRANSPARENT` |
 | `blender/mirror.py` only | `SOCKET_BUFFER`, `SOCKET_POLL_INTERVAL` · `ATTACH_VIEWPORT_TO_CAMERA` |
 
 Only edit `config.py`; the values are forwarded into the live session.
@@ -122,7 +122,7 @@ src/ur5e_bullet/          pybullet simulation package (__init__.py = CLI + demo_
   sim.py                  UR5Sim (physics, IK, RRT, mirror)
   blender_link.py         TCP-socket mirror → Blender
   visualize_scan.py       3D-Plot der Kamerasichtachsen aus scan pose.json
-                          (Sichtachsenlaenge = Gebissdurchmesser/4 aus jaw-STL,
+                          (Sichtachsenlaenge = camera_far_m aus render_settings,
                           Stereo-Paare L-R als gruene Linie an Kamerapunkten und
                           Pfeilspitzen, gestrichelte Linie durch die Waypoint-Mittelpunkte;
                           CLI `visualize-scan <scan_dir|render/> [--out png|dir] [--ray-len m]`)

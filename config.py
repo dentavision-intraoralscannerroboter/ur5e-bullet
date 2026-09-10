@@ -221,7 +221,7 @@ S = 1
 
 # ── Kamera-Clipping / Darstellung (nur Blender-Rig) ──
 CAMERA_NEAR_M = 0.001
-CAMERA_FAR_M = 0.1
+CAMERA_FAR_M = 0.03
 CAMERA_DISPLAY_M = 0.2
 
 # ── Licht ──

@@ -33,11 +33,16 @@ def _write_stl(path, x, y, z):
 def _write_scan(root, n_poses=3, with_cameras=True):
     with open(os.path.join(root, "render_settings.json"), "w") as f:
         json.dump({
-            "start_position": "o1l",
-            "baseline_m": 0.003,
-            "camera_fov_deg": 87.0,
-            "jaw_folder": 1,
-            "jaw_type": "lower",
+            "info": {
+                "start_position": "o1l",
+                "jaw_folder": 1,
+                "jaw_type": "lower",
+            },
+            "reconstruction": {
+                "baseline_m": 0.003,
+                "camera_fov_deg": 87.0,
+                "camera_far_m": 0.03,
+            },
         }, f)
     for i in range(n_poses):
         pose = {
@@ -96,7 +101,11 @@ def test_stl_spans_m_and_default_ray_len():
         if os.path.isfile(real):
             assert 0.05 <= vs._jaw_diameter_m(1, "lower") <= 0.08
         assert vs._jaw_diameter_m(folder=999, jaw_type="lower") is None
-        assert vs._default_ray_len({"jaw_folder": 999, "jaw_type": "lower"}) == round(0.25 * 0.063, 4)
+        assert vs._default_ray_len({"reconstruction": {"camera_far_m": 0.03}}) == 0.03
+        assert vs._default_ray_len({}) == round(vs._cfg_mod.CAMERA_FAR_M, 4)
+        assert vs._settings_get({"baseline_m": 0.003}, "baseline_m") == 0.003  # flat Fallback
+        assert vs._settings_get({"info": {"start_position": "o1l"}}, "start_position") == "o1l"
+        assert vs._settings_get({}, "nicht_da", 7) == 7
 
 
 def test_plot_scan_dir_green_baseline_and_auto_ray():
@@ -113,7 +122,7 @@ def test_plot_scan_dir_green_baseline_and_auto_ray():
         right = np.array([p[2][1]["position"] for p in poses])
         ql = np.array([p[2][0]["quaternion"] for p in poses])
         qr = np.array([p[2][1]["quaternion"] for p in poses])
-        ray = vs._default_ray_len({"jaw_folder": 1, "jaw_type": "lower"})
+        ray = vs._default_ray_len(vs._load_settings(root))
         tips_l = left + np.array([vs._rotate(q, (0, 0, -1)) * ray for q in ql])
         tips_r = right + np.array([vs._rotate(q, (0, 0, -1)) * ray for q in qr])
         segs = np.array([np.asarray(l.get_data_3d()).T for l in green])

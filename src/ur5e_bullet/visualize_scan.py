@@ -4,8 +4,8 @@ Nimmt einen Scan-Ordner (enthält <n>_pose.json, optional render_settings.json)
 oder das render/-Root (alle Scan-Unterordner) und zeichnet im Gebiss-Frame (in m):
 
   - Kamera-Zentren: links = rot, rechts = blau
-  - Sichtachse je Kamera: Pfeil entlang R(q) @ (0,0,-1)  (Blender-Kamera-Blickrichtung),
-    Laenge = Gebissdurchmesser/4 (aus der jaw-STL des Scans), keine Pfeilspitze
+  - Sichtachse je Kamera: Linie entlang R(q) @ (0,0,-1)  (Blender-Kamera-Blickrichtung),
+    Laenge = camera_far_m (Far-Clip-Ebene aus render_settings), keine Pfeilspitze
   - Stereo-Baseline: gruene Linie zwischen den Kamerapunkten und am Ende der
     beiden Sichtlinien (Pfeilspitzen)
   - Waypoint-Labels: im Mittelpunkt des jeweiligen L/R-Stereo-Paares
@@ -48,7 +48,6 @@ _cfg_spec.loader.exec_module(_cfg_mod)
 JAWS_DIR = _cfg_mod.JAWS_DIR
 
 _POSE_RE = re.compile(r"(\d+)_pose\.json$")
-_GEBISS_DIAMETER_FALLBACK_M = 0.063  # Median der data/meshes_jaws/*/lower.stl (63..73 mm)
 
 
 def _stl_bbox_m(path):
@@ -80,11 +79,17 @@ def _jaw_diameter_m(folder=1, jaw_type="lower"):
     return float(max(spans[0], spans[1]))
 
 
+def _settings_get(settings, key, default=None):
+    if key in settings:
+        return settings[key]
+    for block in ("info", "reconstruction"):
+        if isinstance(settings.get(block), dict) and key in settings[block]:
+            return settings[block][key]
+    return default
+
+
 def _default_ray_len(settings):
-    d = _jaw_diameter_m(settings.get("jaw_folder", 1), settings.get("jaw_type", "lower"))
-    if d is None:
-        d = _GEBISS_DIAMETER_FALLBACK_M
-    return round(0.1 * d, 4)
+    return round(_settings_get(settings, "camera_far_m", _cfg_mod.CAMERA_FAR_M), 4)
 
 
 def _rotate(q, v):
@@ -191,7 +196,7 @@ def plot_scan_dir(scan_dir, out=None, ray_len=None):
     if len(left) > 1:
         ax.plot(mid[:, 0], mid[:, 1], mid[:, 2], color="0.1", linestyle="--", linewidth=0.8)
 
-    jaw_bbox = _jaw_bbox_m(settings.get("jaw_folder", 1), settings.get("jaw_type", "lower"))
+    jaw_bbox = _jaw_bbox_m(_settings_get(settings, "jaw_folder", 1), _settings_get(settings, "jaw_type", "lower"))
     if jaw_bbox:
         lo, hi = jaw_bbox
         z_plane = hi[2]
@@ -212,7 +217,7 @@ def plot_scan_dir(scan_dir, out=None, ray_len=None):
 
     ax.set_xlabel("x (m)"), ax.set_ylabel("y (m)"), ax.set_zlabel("z (m)")
     ax.set_title(os.path.basename(scan_dir))
-    info = settings.get("start_position")
+    info = _settings_get(settings, "start_position")
     if info:
         dists = np.linalg.norm(right - left, axis=1)
         dmin, dmax = float(dists.min()), float(dists.max())
@@ -221,8 +226,8 @@ def plot_scan_dir(scan_dir, out=None, ray_len=None):
         else:
             base_line = f"|L-R| variiert {dmin:.4f}..{dmax:.4f} m (!)"
         ax.text2D(0.02, 0.02,
-                  f"Gebiss-Frame  start={info}  baseline_m={settings.get('baseline_m', '?')}  "
-                  f"fov={settings.get('camera_fov_deg', '?')}°\n{base_line}",
+                  f"Gebiss-Frame  start={info}  baseline_m={_settings_get(settings, 'baseline_m', '?')}  "
+                  f"fov={_settings_get(settings, 'camera_fov_deg', '?')}°\n{base_line}",
                   transform=ax.transAxes, fontsize=8)
     ax.legend(loc="upper right", fontsize=8)
 
