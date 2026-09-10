@@ -1,16 +1,25 @@
+import importlib.util as _ilu
 import math
 import os
-
-import importlib.util as _ilu
+import sys
 
 # ── Bootstrap ───────────────────────────────────────────────────────────────
-PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+# config.py wird bewusst OHNE Relative-Imports geschrieben: In Blender laeuft
+# es standalone (externes Python ohne pybullet/Paket) per importlib — relative
+# Imports wuerden dort scheitern.
+_HERE = os.path.dirname(os.path.abspath(__file__))
 
-# Waypoint-Generator: ausgelagert in das Schwestermodul waypoints.py
-# (sys.path-unabhaengig geladen, wie der config-Import in __init__/sim).
-_wp_spec = _ilu.spec_from_file_location("waypoints", os.path.join(PKG_DIR, "waypoints.py"))
-_wp_mod = _ilu.module_from_spec(_wp_spec)
-_wp_spec.loader.exec_module(_wp_mod)
+# Projektroot: src/ur5e_bullet/config.py -> zwei Ebenen hoch.
+PKG_DIR = os.path.dirname(os.path.dirname(_HERE))
+
+# Waypoint-Generator: Schwestermodul standalone laden und cachen, damit
+# rig.py/mirror.py (Blender) und das Paket sich EINE Instanz teilen.
+_wp_mod = sys.modules.get("waypoints")
+if _wp_mod is None:
+    _wp_spec = _ilu.spec_from_file_location("waypoints", os.path.join(_HERE, "waypoints.py"))
+    _wp_mod = _ilu.module_from_spec(_wp_spec)
+    sys.modules["waypoints"] = _wp_mod
+    _wp_spec.loader.exec_module(_wp_mod)
 parabola_waypoints = _wp_mod.parabola_waypoints
 
 
@@ -28,6 +37,11 @@ RENDER_DIR = os.path.join(PKG_DIR, "render")
 # Tool-Offset (Scanner → TCP)
 TOOL_OFFSET_POS = [0.213, 0, -0.006]
 TOOL_OFFSET_ORN = [0, 0, 0, 1]
+
+# Basis-Rotation Scanner → Kamera (Euler, Grad). Muss konstant bleiben:
+# identisch verwendet in camera.py (Posen), demo.py (Frustum) und
+# blender/rig.py (Render-Platzierung) — sonst weicht die Vorschau vom Render ab.
+SCANNER_BASE_ORN_DEG = [0.0, -90.0, 0.0]
 
 # Kollisions-Abstand des Gebisses
 GEBISS_COLL_CELL = 1.5

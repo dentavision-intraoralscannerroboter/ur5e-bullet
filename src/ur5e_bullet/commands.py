@@ -1,16 +1,7 @@
 import math
 from collections import namedtuple
 
-import importlib.util as _ilu
-import os as _os
-
-_cfg = _ilu.spec_from_file_location(
-    "config",
-    _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "..", "config.py"),
-)
-_cfg_mod = _ilu.module_from_spec(_cfg)
-_cfg.loader.exec_module(_cfg_mod)
-START_POSITIONS = _cfg_mod.START_POSITIONS
+from .config import START_POSITIONS
 
 
 Command = namedtuple("Command", [

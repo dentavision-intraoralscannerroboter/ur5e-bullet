@@ -8,17 +8,12 @@ import bpy
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rig
 
-import importlib.util as _ilu
-_cfg_spec = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.py"),
+from config import (
+    SOCKET_BUFFER,
+    SOCKET_POLL_INTERVAL,
+    ATTACH_VIEWPORT_TO_CAMERA,
+    PROJECT_ROOT,
 )
-_cfg_mod = _ilu.module_from_spec(_cfg_spec)
-_cfg_spec.loader.exec_module(_cfg_mod)
-SOCKET_BUFFER = _cfg_mod.SOCKET_BUFFER
-SOCKET_POLL_INTERVAL = _cfg_mod.SOCKET_POLL_INTERVAL
-ATTACH_VIEWPORT_TO_CAMERA = _cfg_mod.ATTACH_VIEWPORT_TO_CAMERA
-PROJECT_ROOT = _cfg_mod.PROJECT_ROOT
 
 CONTROL_JOINTS = [
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",

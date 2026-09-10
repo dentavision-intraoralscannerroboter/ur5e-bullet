@@ -1,17 +1,10 @@
-import os
-
 import pybullet
 
-import importlib.util as _ilu
-_cfg = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+from .config import (
+    WAYPOINT_MARKER_RADIUS,
+    LOOK_TARGET_RADIUS,
+    LOOK_TARGET_COLOR,
 )
-_cfg_mod = _ilu.module_from_spec(_cfg)
-_cfg.loader.exec_module(_cfg_mod)
-WAYPOINT_MARKER_RADIUS = _cfg_mod.WAYPOINT_MARKER_RADIUS
-LOOK_TARGET_RADIUS = _cfg_mod.LOOK_TARGET_RADIUS
-LOOK_TARGET_COLOR = _cfg_mod.LOOK_TARGET_COLOR
 
 
 def _draw_crosshair(pos, color, items, label=None):

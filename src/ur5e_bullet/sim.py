@@ -16,32 +16,28 @@ from pybullet_planning.interfaces.robots.joint import get_movable_joints
 from .blender_link import BlenderMirror
 from ._console import status, status_end
 from .decimate_stl import read_stl, decimate, write_stl
-
-import importlib.util as _ilu
-_cfg = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+from .config import (
+    ROBOT_URDF_PATH,
+    JAWS_DIR,
+    GEBISS_SCALE,
+    GEBISS_COLL_CELL,
+    TOOL_OFFSET_POS,
+    TOOL_OFFSET_ORN,
+    IK_LAMBDA,
+    IK_TOLERANCE,
+    RRT_RESTARTS,
+    RRT_SMOOTH,
+    RRT_SEED,
+    JOINTS,
+    PB_CAMERA_DISTANCE,
+    PB_CAMERA_YAW,
+    PB_CAMERA_PITCH,
+    PB_CAMERA_TARGET_POS,
 )
-_cfg_mod = _ilu.module_from_spec(_cfg)
-_cfg.loader.exec_module(_cfg_mod)
-ROBOT_URDF_PATH = _cfg_mod.ROBOT_URDF_PATH
-JAWS_DIR = _cfg_mod.JAWS_DIR
-GEBISS_SCALE = _cfg_mod.GEBISS_SCALE
-GEBISS_COLL_CELL = _cfg_mod.GEBISS_COLL_CELL
-TOOL_OFFSET_POS = _cfg_mod.TOOL_OFFSET_POS
-TOOL_OFFSET_ORN = _cfg_mod.TOOL_OFFSET_ORN
-IK_LAMBDA = _cfg_mod.IK_LAMBDA
-IK_TOLERANCE = _cfg_mod.IK_TOLERANCE
-RRT_RESTARTS = _cfg_mod.RRT_RESTARTS
-RRT_SMOOTH = _cfg_mod.RRT_SMOOTH
-RRT_SEED = _cfg_mod.RRT_SEED
-JOINT_LOWER_LIMITS = [math.radians(j["lower_deg"]) for j in _cfg_mod.JOINTS]
-JOINT_UPPER_LIMITS = [math.radians(j["upper_deg"]) for j in _cfg_mod.JOINTS]
-JOINT_REST_POSES = [math.radians(j["rest_deg"]) for j in _cfg_mod.JOINTS]
-PB_CAMERA_DISTANCE = _cfg_mod.PB_CAMERA_DISTANCE
-PB_CAMERA_YAW = _cfg_mod.PB_CAMERA_YAW
-PB_CAMERA_PITCH = _cfg_mod.PB_CAMERA_PITCH
-PB_CAMERA_TARGET_POS = _cfg_mod.PB_CAMERA_TARGET_POS
+
+JOINT_LOWER_LIMITS = [math.radians(j["lower_deg"]) for j in JOINTS]
+JOINT_UPPER_LIMITS = [math.radians(j["upper_deg"]) for j in JOINTS]
+JOINT_REST_POSES = [math.radians(j["rest_deg"]) for j in JOINTS]
 
 
 class UR5Sim():

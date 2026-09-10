@@ -4,24 +4,19 @@ import os
 import pybullet
 
 from .math_utils import _quat_mul, _quat_conj, _to_jaw_frame
-
-import importlib.util as _ilu
-_cfg = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+from .config import (
+    CAMERA_ROLL_DEG,
+    CAMERA_LATERAL_OFFSET,
+    CAMERA_FAR_M,
+    CAMERA_NEAR_M,
+    CAMERA_FOV_DEG,
+    CAMERA_SENSOR_W_MM,
+    CAMERA_SENSOR_H_MM,
+    CAMERA_LENS_MM,
+    RENDER_W,
+    RENDER_H,
+    SCANNER_BASE_ORN_DEG,
 )
-_cfg_mod = _ilu.module_from_spec(_cfg)
-_cfg.loader.exec_module(_cfg_mod)
-CAMERA_ROLL_DEG = _cfg_mod.CAMERA_ROLL_DEG
-CAMERA_LATERAL_OFFSET = _cfg_mod.CAMERA_LATERAL_OFFSET
-CAMERA_FAR_M = _cfg_mod.CAMERA_FAR_M
-CAMERA_NEAR_M = _cfg_mod.CAMERA_NEAR_M
-CAMERA_FOV_DEG = _cfg_mod.CAMERA_FOV_DEG
-CAMERA_SENSOR_W_MM = _cfg_mod.CAMERA_SENSOR_W_MM
-CAMERA_SENSOR_H_MM = _cfg_mod.CAMERA_SENSOR_H_MM
-CAMERA_LENS_MM = _cfg_mod.CAMERA_LENS_MM
-RENDER_W = _cfg_mod.RENDER_W
-RENDER_H = _cfg_mod.RENDER_H
 
 
 def _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw):
@@ -35,7 +30,7 @@ def _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw):
     sc_id = sim.joints["scanner_joint"].id
     sc_ls = pybullet.getLinkState(sim.ur5, sc_id, computeForwardKinematics=True)
     sc_pos, sc_orn = list(sc_ls[4]), list(sc_ls[5])
-    q_base = pybullet.getQuaternionFromEuler([0.0, math.radians(-90.0), 0.0])
+    q_base = pybullet.getQuaternionFromEuler([math.radians(v) for v in SCANNER_BASE_ORN_DEG])
     q_roll = pybullet.getQuaternionFromEuler([0.0, 0.0, math.radians(CAMERA_ROLL_DEG)])
     q_cam_sc = _quat_mul(q_base, q_roll)
     out = []

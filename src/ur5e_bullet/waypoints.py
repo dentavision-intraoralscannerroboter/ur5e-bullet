@@ -1,23 +1,24 @@
+import importlib.util as _ilu
 import math
+import os
+import sys
 
-import pybullet as pb
+# Quaternion-Mathe aus dem reinen-Python-Schwestermodul beziehen (kanonische
+# Quelle, keine Duplikate). Standalone-Load statt Relative-Import, damit
+# config.py dieses Modul auch in Blender (externes Python) laden kann.
+_mu = sys.modules.get("ur5e_bullet.math_utils")
+if _mu is None:
+    _mu_spec = _ilu.spec_from_file_location(
+        "math_utils",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "math_utils.py"),
+    )
+    _mu = _ilu.module_from_spec(_mu_spec)
+    _mu_spec.loader.exec_module(_mu)
 
 
 def _quat_normalize(q):
     n = math.sqrt(sum(c * c for c in q))
     return [c / n for c in q] if n > 0 else [1.0, 0.0, 0.0, 0.0]
-
-
-def _quat_mul(a, b):
-    """Quaternion-Produkt (Hamilton, xyzw wie pybullet): R(a)·R(b)."""
-    a1, a2, a3, a0 = a
-    b1, b2, b3, b0 = b
-    return [
-        a0*b1 + a1*b0 + a2*b3 - a3*b2,
-        a0*b2 - a1*b3 + a2*b0 + a3*b1,
-        a0*b3 + a1*b2 - a2*b1 + a3*b0,
-        a0*b0 - a1*b1 - a2*b2 - a3*b3,
-    ]
 
 
 def _quat_slerp(a, b, t):
@@ -38,6 +39,8 @@ def _quat_slerp(a, b, t):
 
 
 def parabola_waypoints(cfg):
+    import pybullet as pb
+
     p = cfg.get("parabola", {})
     n = int(p.get("n", 20))
     y_max = float(p.get("y_max", 0.05))
@@ -144,7 +147,7 @@ def parabola_waypoints(cfg):
                     dot = f0[0]*d[0] + f0[1]*d[1] + f0[2]*d[2]
                     ang = math.acos(max(-1.0, min(1.0, dot)))
                     dq = pb.getQuaternionFromAxisAngle(axis, ang)
-                    q = _quat_mul(dq, q)
+                    q = _mu._quat_mul(dq, q)
 
         rot = [math.degrees(v) for v in pb.getEulerFromQuaternion(q)]
         wps.append({

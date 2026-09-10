@@ -29,8 +29,6 @@ import re
 import struct
 import sys
 
-import importlib.util as _ilu
-
 import numpy as np
 
 try:
@@ -39,13 +37,7 @@ except ImportError:
     print("matplotlib fehlt:  poetry add 'matplotlib>=3.9,<4.0'", file=sys.stderr)
     sys.exit(1)
 
-_cfg_spec = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
-)
-_cfg_mod = _ilu.module_from_spec(_cfg_spec)
-_cfg_spec.loader.exec_module(_cfg_mod)
-JAWS_DIR = _cfg_mod.JAWS_DIR
+from .config import JAWS_DIR, CAMERA_FAR_M
 
 _POSE_RE = re.compile(r"(\d+)_pose\.json$")
 
@@ -89,7 +81,7 @@ def _settings_get(settings, key, default=None):
 
 
 def _default_ray_len(settings):
-    return round(_settings_get(settings, "camera_far_m", _cfg_mod.CAMERA_FAR_M), 4)
+    return round(_settings_get(settings, "camera_far_m", CAMERA_FAR_M), 4)
 
 
 def _rotate(q, v):
@@ -245,7 +237,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Kamerasichtachsen aus scan pose.json visualisieren")
     ap.add_argument("path", help="Scan-Ordner oder render/-Root")
     ap.add_argument("--out", help="PNG-Datei (eine Figur) oder Verzeichnis (mehrere Scans)")
-    ap.add_argument("--ray-len", type=float, default=None, help="Sichtachsen-Laenge in m (Default: Gebissdurchmesser/4 aus jaw-STL)")
+    ap.add_argument("--ray-len", type=float, default=None, help="Sichtachsen-Laenge in m (Default: camera_far_m aus render_settings, sonst config CAMERA_FAR_M)")
     args = ap.parse_args(argv)
 
     if not os.path.isdir(args.path):

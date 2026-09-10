@@ -6,8 +6,8 @@ import sys
 
 import pybullet
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import ROBOT_URDF_PATH, BLENDER_URDF_DATA_JSON
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+from ur5e_bullet.config import ROBOT_URDF_PATH, BLENDER_URDF_DATA_JSON
 
 URDF = ROBOT_URDF_PATH
 OUT = BLENDER_URDF_DATA_JSON

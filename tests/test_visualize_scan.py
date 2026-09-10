@@ -102,7 +102,7 @@ def test_stl_spans_m_and_default_ray_len():
             assert 0.05 <= vs._jaw_diameter_m(1, "lower") <= 0.08
         assert vs._jaw_diameter_m(folder=999, jaw_type="lower") is None
         assert vs._default_ray_len({"reconstruction": {"camera_far_m": 0.03}}) == 0.03
-        assert vs._default_ray_len({}) == round(vs._cfg_mod.CAMERA_FAR_M, 4)
+        assert vs._default_ray_len({}) == round(vs.CAMERA_FAR_M, 4)
         assert vs._settings_get({"baseline_m": 0.003}, "baseline_m") == 0.003  # flat Fallback
         assert vs._settings_get({"info": {"start_position": "o1l"}}, "start_position") == "o1l"
         assert vs._settings_get({}, "nicht_da", 7) == 7

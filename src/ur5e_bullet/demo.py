@@ -13,36 +13,31 @@ from .camera import (_camera_poses_in_jaw, _camera_intrinsic,
 from .commands import _parse_command
 from .viz import (_draw_crosshair, _draw_waypoint_bodies,
                   _draw_look_target_body, _resolve_waypoints)
-
-import importlib.util as _ilu
-_cfg = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
+from .config import (
+    START_POSITIONS,
+    BOOT_START,
+    PREVIEW_PAUSE,
+    ENABLE_BLENDER_SYNC,
+    DRAW_CAMERA_FRUSTUM,
+    CAMERA_FRUSTUM_COLOR,
+    CAMERA_FRUSTUM_ALPHA,
+    PB_CAMERA_DISTANCE,
+    PB_CAMERA_YAW,
+    PB_CAMERA_PITCH,
+    PB_CAMERA_TARGET_POS,
+    RENDER_W,
+    RENDER_H,
+    RENDER_ENGINE,
+    RENDER_DEVICE,
+    RENDER_TIMEOUT,
+    CAMERA_LATERAL_OFFSET,
+    CAMERA_FOV_DEG,
+    CAMERA_LENS_MM,
+    CAMERA_ROLL_DEG,
+    CAMERA_FAR_M,
+    RENDER_DIR,
+    SCANNER_BASE_ORN_DEG,
 )
-_cfg_mod = _ilu.module_from_spec(_cfg)
-_cfg.loader.exec_module(_cfg_mod)
-START_POSITIONS = _cfg_mod.START_POSITIONS
-BOOT_START = _cfg_mod.BOOT_START
-PREVIEW_PAUSE = _cfg_mod.PREVIEW_PAUSE
-ENABLE_BLENDER_SYNC = _cfg_mod.ENABLE_BLENDER_SYNC
-DRAW_CAMERA_FRUSTUM = _cfg_mod.DRAW_CAMERA_FRUSTUM
-CAMERA_FRUSTUM_COLOR = _cfg_mod.CAMERA_FRUSTUM_COLOR
-CAMERA_FRUSTUM_ALPHA = _cfg_mod.CAMERA_FRUSTUM_ALPHA
-PB_CAMERA_DISTANCE = _cfg_mod.PB_CAMERA_DISTANCE
-PB_CAMERA_YAW = _cfg_mod.PB_CAMERA_YAW
-PB_CAMERA_PITCH = _cfg_mod.PB_CAMERA_PITCH
-PB_CAMERA_TARGET_POS = _cfg_mod.PB_CAMERA_TARGET_POS
-RENDER_W = _cfg_mod.RENDER_W
-RENDER_H = _cfg_mod.RENDER_H
-RENDER_ENGINE = _cfg_mod.RENDER_ENGINE
-RENDER_DEVICE = _cfg_mod.RENDER_DEVICE
-RENDER_TIMEOUT = _cfg_mod.RENDER_TIMEOUT
-CAMERA_LATERAL_OFFSET = _cfg_mod.CAMERA_LATERAL_OFFSET
-CAMERA_FOV_DEG = _cfg_mod.CAMERA_FOV_DEG
-CAMERA_LENS_MM = _cfg_mod.CAMERA_LENS_MM
-CAMERA_ROLL_DEG = _cfg_mod.CAMERA_ROLL_DEG
-CAMERA_FAR_M = _cfg_mod.CAMERA_FAR_M
-RENDER_DIR = _cfg_mod.RENDER_DIR
 
 
 def demo_simulation():
@@ -74,7 +69,7 @@ def demo_simulation():
         sc_ls = pybullet.getLinkState(sim.ur5, sc_id, computeForwardKinematics=True)
         sc_orn = list(sc_ls[5])
         q_cam_sc = _quat_mul(
-            pybullet.getQuaternionFromEuler([0.0, math.radians(-90.0), 0.0]),
+            pybullet.getQuaternionFromEuler([math.radians(v) for v in SCANNER_BASE_ORN_DEG]),
             pybullet.getQuaternionFromEuler([0.0, 0.0, math.radians(CAMERA_ROLL_DEG)]),
         )
         cam_quat = _quat_mul(sc_orn, q_cam_sc)

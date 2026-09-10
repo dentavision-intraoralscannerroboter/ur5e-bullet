@@ -76,20 +76,29 @@ position and load the jaw.
 
 Available start positions: `a1l`, `a2l`, `aussen2`, `o1l`, `innen`.
 
-## Configuration (`config.py`)
+## Configuration (`src/ur5e_bullet/config.py`)
 
-All simulation, rendering and scan parameters live in `config.py`. The file is
-sorted by consumer: values used by only one module first, shared values below.
+All simulation, rendering and scan parameters live in `src/ur5e_bullet/config.py`.
+The file is sorted by domain (paths, robot/kinematics, camera, rendering, GUI,
+visualization, jaw/material, Blender, scan positions). `config.py` defines no
+relative imports and loads `waypoints.py` standalone, so the Blender scripts can
+import it in Blender's own Python without the pybullet pipeline.
 
 | Consumer | Keys |
 |----------|------|
-| all modules (shared paths) | `PROJECT_ROOT`, `ROBOT_URDF_PATH`, `JAWS_DIR`, `BLENDER_URDF_DATA_JSON`, `ARM_MESH_DIR`, `SCANNER_STAB_STL`, `MIRROR_SCRIPT`, `RENDER_DIR` |
+| shared (paths) | `PROJECT_ROOT`, `ROBOT_URDF_PATH`, `JAWS_DIR`, `BLENDER_URDF_DATA_JSON`, `ARM_MESH_DIR`, `SCANNER_STAB_STL`, `MIRROR_SCRIPT`, `RENDER_DIR` |
 | `sim.py` only | `TOOL_OFFSET_POS`, `TOOL_OFFSET_ORN` · `GEBISS_COLL_CELL` · `IK_LAMBDA`, `IK_TOLERANCE` · `RRT_RESTARTS`, `RRT_SMOOTH`, `RRT_SEED` · `JOINTS` (`lower_deg`, `upper_deg`, `rest_deg` per joint, order = joint order) |
-| `sim.py` + `__init__.py` | `PB_CAMERA_DISTANCE`, `PB_CAMERA_YAW`, `PB_CAMERA_PITCH`, `PB_CAMERA_TARGET_POS` |
+| `sim.py` + `demo.py` | `PB_CAMERA_DISTANCE`, `PB_CAMERA_YAW`, `PB_CAMERA_PITCH`, `PB_CAMERA_TARGET_POS` |
 | `sim.py` + `blender/rig.py` | `GEBISS_SCALE` |
-| `__init__.py` only | `BOOT_START` (`tcp_pos`, `tcp_ori_deg` in deg) — `None` disables · `RENDER_TIMEOUT` · `PREVIEW_PAUSE`, `WAYPOINT_MARKER_RADIUS` · `ENABLE_BLENDER_SYNC` · `DRAW_CAMERA_FRUSTUM` (blau-transparentes Kamerafrustum bis `CAMERA_FAR_M`, nur bei geladener Startposition), `CAMERA_FRUSTUM_COLOR`, `CAMERA_FRUSTUM_ALPHA` · `LOOK_TARGET_RADIUS`, `LOOK_TARGET_COLOR` · `START_POSITIONS` (see below) |
-| `__init__.py` + `blender/rig.py` | `CAMERA_ROLL_DEG`, `CAMERA_SENSOR_W_MM`, `CAMERA_SENSOR_H_MM`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_LATERAL_OFFSET`, `CAMERA_FAR_M` · `RENDER_W`, `RENDER_H`, `RENDER_ENGINE`, `RENDER_DEVICE` |
-| `blender/rig.py` only | `S` (Blender units per meter) · `CAMERA_NEAR_M`, `CAMERA_DISPLAY_M` · `LIGHT_POWER`, `LIGHT_OFFSET` · `GEBISS_ROUGHNESS`, `GEBISS_SPECULAR` · `RENDER_TRANSPARENT` |
+| `demo.py` only | `BOOT_START` (`tcp_pos`, `tcp_ori_deg` in deg) — `None` disables · `RENDER_TIMEOUT` · `PREVIEW_PAUSE` · `ENABLE_BLENDER_SYNC` · `DRAW_CAMERA_FRUSTUM` (blau-transparentes Kamerafrustum bis `CAMERA_FAR_M`, nur bei geladener Startposition), `CAMERA_FRUSTUM_COLOR`, `CAMERA_FRUSTUM_ALPHA` |
+| `demo.py` + `commands.py` | `START_POSITIONS` (see below) |
+| `viz.py` only | `WAYPOINT_MARKER_RADIUS` · `LOOK_TARGET_RADIUS`, `LOOK_TARGET_COLOR` |
+| `camera.py` + `demo.py` + `blender/rig.py` | `SCANNER_BASE_ORN_DEG` (Scanner→Kamera-Rotation, muss in allen drei Stellen identisch sein) |
+| `camera.py` only | `CAMERA_ROLL_DEG`, `CAMERA_SENSOR_W_MM`, `CAMERA_SENSOR_H_MM`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_LATERAL_OFFSET`, `CAMERA_FAR_M`, `RENDER_W`, `RENDER_H` |
+| `camera.py` + `blender/rig.py` | `CAMERA_NEAR_M` |
+| `demo.py` + `blender/rig.py` | `RENDER_W`, `RENDER_H`, `RENDER_ENGINE`, `RENDER_DEVICE` · `CAMERA_ROLL_DEG`, `CAMERA_FOV_DEG`, `CAMERA_LENS_MM`, `CAMERA_LATERAL_OFFSET`, `CAMERA_FAR_M` |
+| `visualize_scan.py` | `JAWS_DIR`, `CAMERA_FAR_M` (shared) |
+| `blender/rig.py` only | `S` (Blender units per meter) · `CAMERA_DISPLAY_M` · `LIGHT_POWER`, `LIGHT_OFFSET` · `GEBISS_ROUGHNESS`, `GEBISS_SPECULAR` · `RENDER_TRANSPARENT` |
 | `blender/mirror.py` only | `SOCKET_BUFFER`, `SOCKET_POLL_INTERVAL` · `ATTACH_VIEWPORT_TO_CAMERA` |
 
 Only edit `config.py`; the values are forwarded into the live session.
@@ -116,17 +125,29 @@ Each entry `"<name>"` supports:
 ## Layout
 
 ```
-config.py                 all simulation/render/scan parameters
-waypoints.py              waypoint generators (parabola_waypoints)
-src/ur5e_bullet/          pybullet simulation package (__init__.py = CLI + demo_simulation)
+src/ur5e_bullet/          pybullet simulation package (entry-point CLI via
+                          __init__.py = demo_simulation)
+  __init__.py             package hub: re-exports for tests / external callers
+  config.py               all simulation/render/scan parameters (loaded
+                          standalone by Blender scripts — keep it free of
+                          relative imports)
+  waypoints.py            waypoint generators (parabola_waypoints)
+  math_utils.py           pure-python quaternion / jaw-frame math
   sim.py                  UR5Sim (physics, IK, RRT, mirror)
+  camera.py               camera/frustum model (poses, intrinsic, frustum obj)
+  commands.py             console command parsing (Command, _parse_command)
+  viz.py                  pybullet visualization helpers
+  demo.py                 demo_simulation (CLI + simulation loop)
   blender_link.py         TCP-socket mirror → Blender
   visualize_scan.py       3D-Plot der Kamerasichtachsen aus scan pose.json
                           (Sichtachsenlaenge = camera_far_m aus render_settings,
                           Stereo-Paare L-R als gruene Linie an Kamerapunkten und
                           Pfeilspitzen, gestrichelte Linie durch die Waypoint-Mittelpunkte;
                           CLI `visualize-scan <scan_dir|render/> [--out png|dir] [--ray-len m]`)
-blender/                  Blender-side scripts (mirror.py, rig.py)
+blender/                  Blender-side scripts (mirror.py, rig.py) — laufen in
+                          Blenders eigenem Python OHNE pybullet: Nie `import
+                          ur5e_bullet` dort verwenden, config wird standalone
+                          aus src/ur5e_bullet/config.py geladen
 scripts/                  standalone tools (regenerate_urdf_data.py)
 data/                     robot description (URDF + meshes), arm/mesh assets, jaw meshes
 archive/                  Archived, unused scripts and assets (git-ignored)

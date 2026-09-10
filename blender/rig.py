@@ -28,7 +28,21 @@ def _script_dir():
 
 SCRIPT_DIR = _script_dir()
 
-sys.path.insert(0, os.path.dirname(SCRIPT_DIR))
+# config.py standalone laden: laeuft in Blenders eigenem Python ohne die
+# installierte Pybullet-Pipeline — `import ur5e_bullet` wuerde dort crashen.
+# Vor dem exec_module in sys.modules registrieren, damit mirror.py (import rig)
+# dieselbe Instanz wiederverwendet.
+import importlib.util as _ilu
+_cfg_spec = _ilu.spec_from_file_location(
+    "config",
+    os.path.join(SCRIPT_DIR, "..", "src", "ur5e_bullet", "config.py"),
+)
+_sys_config = sys.modules.get("config")
+if _sys_config is None:
+    _sys_config = _ilu.module_from_spec(_cfg_spec)
+    sys.modules["config"] = _sys_config
+    _cfg_spec.loader.exec_module(_sys_config)
+
 from config import (
     GEBISS_SCALE,
     GEBISS_ROUGHNESS, GEBISS_SPECULAR,
@@ -39,6 +53,7 @@ from config import (
     RENDER_W, RENDER_H, RENDER_ENGINE, RENDER_DEVICE, RENDER_TRANSPARENT,
     TOOL_OFFSET_POS, S,
     BLENDER_URDF_DATA_JSON, ARM_MESH_DIR, JAWS_DIR, SCANNER_STAB_STL,
+    SCANNER_BASE_ORN_DEG,
 )
 
 CAMERA_ROLL = math.radians(CAMERA_ROLL_DEG)
@@ -240,7 +255,7 @@ def add_scanner_and_camera(arm_obj, meshes):
     meshes["scanner_stab"] = scanner_obj
     print("  + scanner_stab -> wrist_3_joint")
 
-    base_q = Euler((0, math.radians(-90), 0), "XYZ").to_quaternion()
+    base_q = Euler([math.radians(v) for v in SCANNER_BASE_ORN_DEG], "XYZ").to_quaternion()
     for suffix, sign in (("_L", -1.0), ("_R", 1.0)):
         bpy.ops.object.camera_add()
         cam = bpy.context.active_object

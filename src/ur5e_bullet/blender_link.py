@@ -7,18 +7,10 @@ import threading
 import time
 
 from ._console import log, progress, progress_done
-
-import importlib.util as _ilu
-_cfg = _ilu.spec_from_file_location(
-    "config",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "config.py"),
-)
-_cfg_mod = _ilu.module_from_spec(_cfg)
-_cfg.loader.exec_module(_cfg_mod)
-MIRROR_SCRIPT = _cfg_mod.MIRROR_SCRIPT
+from .config import MIRROR_SCRIPT, PROJECT_ROOT
 
 MIRROR_CONNECT_WARN_S = 30
-_PROJECT_ROOT = _cfg_mod.PROJECT_ROOT
+_PROJECT_ROOT = PROJECT_ROOT
 _ERROR_MARKERS = (
     "Traceback", "Error:", "Exception:", "AttributeError", "NameError",
     "TypeError", "ValueError", "ImportError", "ModuleNotFoundError",
