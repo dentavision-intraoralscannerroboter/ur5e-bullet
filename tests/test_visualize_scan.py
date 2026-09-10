@@ -6,6 +6,7 @@ gestellt, gespeichert wird in einen temporaeren Ordner.
 
 import json
 import os
+import struct
 import tempfile
 
 import numpy as np
@@ -18,12 +19,25 @@ import ur5e_bullet.visualize_scan as vs
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def _write_stl(path, x, y, z):
+    with open(path, "wb") as fh:
+        fh.write(b"\0" * 80)
+        fh.write(struct.pack("<I", 2))
+        for tri in (((0, 0, 0), (x, y, 0), (0, z, 0)), ((x, y, z), (x, 0, 0), (0, 0, z))):
+            fh.write(b"\0" * 12)
+            for v in tri:
+                fh.write(struct.pack("<3f", *v))
+            fh.write(b"\0" * 2)
+
+
 def _write_scan(root, n_poses=3, with_cameras=True):
     with open(os.path.join(root, "render_settings.json"), "w") as f:
         json.dump({
             "start_position": "o1l",
             "baseline_m": 0.003,
             "camera_fov_deg": 87.0,
+            "jaw_folder": 1,
+            "jaw_type": "lower",
         }, f)
     for i in range(n_poses):
         pose = {
@@ -72,7 +86,71 @@ def test_scan_dirs_discovery():
         assert vs._scan_dirs(os.path.join(root, "scan_a")) == [os.path.join(root, "scan_a")]
 
 
-def test_plot_scan_dir_writes_png():
+def test_stl_spans_m_and_default_ray_len():
+    with tempfile.TemporaryDirectory() as root:
+        p = os.path.join(root, "jaw.stl")
+        _write_stl(p, 60.0, 40.0, 20.0)
+        spans = vs._stl_spans_m(p)
+        assert np.allclose(spans, [0.06, 0.04, 0.02], atol=1e-6)
+        real = os.path.join(vs.JAWS_DIR, "1", "lower.stl")
+        if os.path.isfile(real):
+            assert 0.05 <= vs._jaw_diameter_m(1, "lower") <= 0.08
+        assert vs._jaw_diameter_m(folder=999, jaw_type="lower") is None
+        assert vs._default_ray_len({"jaw_folder": 999, "jaw_type": "lower"}) == round(0.25 * 0.063, 4)
+
+
+def test_plot_scan_dir_green_baseline_and_auto_ray():
+    with tempfile.TemporaryDirectory() as root:
+        _write_scan(root, n_poses=3)
+        fig = vs.plot_scan_dir(root, out=os.path.join(root, "green.png"), ray_len=None)
+        assert os.path.isfile(os.path.join(root, "green.png"))
+        ax = fig.axes[0]
+        green = [l for l in ax.lines if l.get_color() == "#2ca02c"]
+        assert len(green) == 6
+        assert any(l.get_label() == "Stereo-Paar (L\u2013R)" for l in green)
+        poses, _ = vs._load_poses(root)
+        left = np.array([p[2][0]["position"] for p in poses])
+        right = np.array([p[2][1]["position"] for p in poses])
+        ql = np.array([p[2][0]["quaternion"] for p in poses])
+        qr = np.array([p[2][1]["quaternion"] for p in poses])
+        ray = vs._default_ray_len({"jaw_folder": 1, "jaw_type": "lower"})
+        tips_l = left + np.array([vs._rotate(q, (0, 0, -1)) * ray for q in ql])
+        tips_r = right + np.array([vs._rotate(q, (0, 0, -1)) * ray for q in qr])
+        segs = np.array([np.asarray(l.get_data_3d()).T for l in green])
+        expected_tips = np.vstack([tips_l[0], tips_r[0]])
+        expected_pts = np.vstack([left[0], right[0]])
+        assert (np.abs(segs - expected_tips[None]) <= 1e-9).all(axis=(1, 2)).any()
+        assert (np.abs(segs - expected_pts[None]) <= 1e-9).all(axis=(1, 2)).any()
+        mid = (left + right) / 2
+        dashed = [l for l in ax.lines if l.get_linestyle() == "--"]
+        assert len(dashed) == 1
+        assert np.allclose(np.vstack(dashed[0].get_data_3d()), mid.T, atol=1e-9)
+        labels = [t for t in ax.texts if t.get_text().strip().startswith("W")]
+        for t, m in zip(sorted(labels, key=lambda t: t.get_text()), mid):
+            assert np.allclose(t.get_position_3d(), m, atol=1e-9)
+        assert np.allclose(ax.get_proj()[3, :3], 0)  # orthografische Projektion
+        assert any(l.get_color() == "0.85" for l in ax.lines)
+        xl = ax.get_xlim()
+        assert np.allclose(ax.get_ylim(), xl, atol=1e-9)
+        assert np.allclose(ax.get_zlim(), xl, atol=1e-9)  # isometrische Achs-Skalierung
+        infos = [t.get_text() for t in ax.texts if "|L-R|" in t.get_text()]
+        assert infos and "konstant" in infos[0] and "n=3" in infos[0]
+
+
+def test_jaw_bbox_m():
+    with tempfile.TemporaryDirectory() as root:
+        p = os.path.join(root, "jaw.stl")
+        _write_stl(p, 60.0, 40.0, 20.0)
+        lo, hi = vs._stl_bbox_m(p)
+        assert np.allclose(lo, [0, 0, 0], atol=1e-6)
+        assert np.allclose(hi, [0.06, 0.04, 0.02], atol=1e-6)
+        real = os.path.join(vs.JAWS_DIR, "1", "lower.stl")
+        if os.path.isfile(real):
+            blo, bhi = vs._jaw_bbox_m(1, "lower")
+            assert np.allclose(bhi - blo, vs._stl_spans_m(real), atol=1e-9)
+
+
+def test_plot_scan_dir_explicit_ray_len():
     with tempfile.TemporaryDirectory() as root:
         _write_scan(root, n_poses=3)
         out = os.path.join(root, "out.png")

@@ -122,7 +122,10 @@ src/ur5e_bullet/          pybullet simulation package (__init__.py = CLI + demo_
   sim.py                  UR5Sim (physics, IK, RRT, mirror)
   blender_link.py         TCP-socket mirror → Blender
   visualize_scan.py       3D-Plot der Kamerasichtachsen aus scan pose.json
-                          (CLI `visualize-scan <scan_dir|render/> [--out png|dir]`)
+                          (Sichtachsenlaenge = Gebissdurchmesser/4 aus jaw-STL,
+                          Stereo-Paare L-R als gruene Linie an Kamerapunkten und
+                          Pfeilspitzen, gestrichelte Linie durch die Waypoint-Mittelpunkte;
+                          CLI `visualize-scan <scan_dir|render/> [--out png|dir] [--ray-len m]`)
 blender/                  Blender-side scripts (mirror.py, rig.py)
 scripts/                  standalone tools (regenerate_urdf_data.py)
 data/                     robot description (URDF + meshes), arm/mesh assets, jaw meshes
