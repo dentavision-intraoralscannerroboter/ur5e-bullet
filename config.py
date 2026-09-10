@@ -100,12 +100,6 @@ BOOT_START = {
 
 
 # ── Visualisierung / Debug ──────────────────────────────────────────────────
-# TCP-Sichtachse (Stab vom TCP in Blickrichtung)
-DRAW_VIEW_STICK = True
-VIEW_STICK_LENGTH = 0.05
-VIEW_STICK_RADIUS = 0.0015
-VIEW_STICK_COLOR = [1.0, 0.3, 0.0, 1.0]
-
 # Kamera-Frustum (Sichtvolumen bis CAMERA_FAR_M, nur bei Startposition sichtbar)
 DRAW_CAMERA_FRUSTUM = True
 CAMERA_FRUSTUM_COLOR = [0.0, 0.55, 1.0]

@@ -20,10 +20,6 @@ BOOT_START = _cfg_mod.BOOT_START
 PREVIEW_PAUSE = _cfg_mod.PREVIEW_PAUSE
 WAYPOINT_MARKER_RADIUS = _cfg_mod.WAYPOINT_MARKER_RADIUS
 ENABLE_BLENDER_SYNC = _cfg_mod.ENABLE_BLENDER_SYNC
-DRAW_VIEW_STICK = _cfg_mod.DRAW_VIEW_STICK
-VIEW_STICK_LENGTH = _cfg_mod.VIEW_STICK_LENGTH
-VIEW_STICK_RADIUS = _cfg_mod.VIEW_STICK_RADIUS
-VIEW_STICK_COLOR = _cfg_mod.VIEW_STICK_COLOR
 DRAW_CAMERA_FRUSTUM = _cfg_mod.DRAW_CAMERA_FRUSTUM
 CAMERA_FRUSTUM_COLOR = _cfg_mod.CAMERA_FRUSTUM_COLOR
 CAMERA_FRUSTUM_ALPHA = _cfg_mod.CAMERA_FRUSTUM_ALPHA
@@ -351,57 +347,6 @@ def demo_simulation():
         pos, _ = sim.get_tcp_pose()
         _draw_crosshair(pos, [0, 1, 0], [])
 
-    def _remove_view_stick():
-        nonlocal view_stick_id
-        if view_stick_id is not None:
-            try:
-                pybullet.removeBody(view_stick_id)
-            except Exception:
-                pass
-            view_stick_id = None
-
-    def draw_view_stick():
-        """Zeichnet einen kollisionsfreien Stab vom TCP aus in Richtung der
-        Kamera-Blickachse. Stab ist ein persistenter Multibody (ueberlebt
-        removeAllUserDebugItems) und wird bei jeder Bewegung repositioniert.
-        Wird durch DRAW_CAMERA_FRUSTUM ersetzt."""
-        nonlocal view_stick_id
-        if not DRAW_VIEW_STICK or DRAW_CAMERA_FRUSTUM:
-            _remove_view_stick()
-            return
-        pos, quat = sim.get_tcp_pose()
-        R = pybullet.getMatrixFromQuaternion(quat)
-        # Kamera-Blickachse (Kandidat: TCP-lokales -Z) -> Weltrichtung
-        view = [-(R[2]), -(R[5]), -(R[8])]
-        length = VIEW_STICK_LENGTH
-        center = [pos[i] + view[i] * length / 2 for i in range(3)]
-        z = (0.0, 0.0, 1.0)
-        dot = z[0]*view[0] + z[1]*view[1] + z[2]*view[2]
-        ang = math.acos(max(-1.0, min(1.0, dot)))
-        axis = [
-            z[1]*view[2] - z[2]*view[1],
-            z[2]*view[0] - z[0]*view[2],
-            z[0]*view[1] - z[1]*view[0],
-        ]
-        n = math.sqrt(sum(c*c for c in axis))
-        oq = (0.0, 0.0, 0.0, 1.0)
-        if n > 1e-6:
-            oq = pybullet.getQuaternionFromAxisAngle([c / n for c in axis], ang)
-        if view_stick_id is None:
-            vis = pybullet.createVisualShape(
-                pybullet.GEOM_CYLINDER,
-                radius=VIEW_STICK_RADIUS,
-                length=length,
-                rgbaColor=VIEW_STICK_COLOR,
-            )
-            view_stick_id = pybullet.createMultiBody(
-                baseVisualShapeIndex=vis,
-                basePosition=center,
-                baseOrientation=oq,
-            )
-        else:
-            pybullet.resetBasePositionAndOrientation(view_stick_id, center, oq)
-
     def _remove_camera_frustum():
         nonlocal camera_frustum_id
         if camera_frustum_id is not None:
@@ -413,8 +358,8 @@ def demo_simulation():
 
     def draw_camera_frustum():
         """Zeichnet das blau-transparente Kamera-Sichtvolumen (Frustum) bis
-        CAMERA_FAR_M exakt im Blender-Kamera-Frame. Wie der View-Stab ein
-        persistenter Multibody, nur bei geladener Startposition sichtbar."""
+        CAMERA_FAR_M exakt im Blender-Kamera-Frame. Persistenter Multibody,
+        nur bei geladener Startposition sichtbar."""
         nonlocal camera_frustum_id
         if not DRAW_CAMERA_FRUSTUM or current_start is None:
             _remove_camera_frustum()
@@ -502,7 +447,6 @@ def demo_simulation():
         pybullet.removeAllUserDebugItems()
         items.clear()
         draw_tcp()
-        draw_view_stick()
         draw_camera_frustum()
 
     def draw_probe_preview(rrt_waypoints, target_position):
@@ -564,7 +508,6 @@ def demo_simulation():
     items = []
     waypoint_bodies = []
     look_target_body_id = None
-    view_stick_id = None
     camera_frustum_id = None
     current_start = None
     waypoint_idx = 0
