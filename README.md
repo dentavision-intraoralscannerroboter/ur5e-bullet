@@ -150,6 +150,6 @@ blender/                  Blender-side scripts (mirror.py, rig.py) — laufen in
                           aus src/ur5e_bullet/config.py geladen
 scripts/                  standalone tools (regenerate_urdf_data.py)
 data/                     robot description (URDF + meshes), arm/mesh assets, jaw meshes
-archive/                  Archived, unused scripts and assets (git-ignored)
+archive/                  Archived, unused scripts and assets
 tests/                    FK / IK checks
 ```
