@@ -58,7 +58,7 @@ def _write_scan(root, n_poses=3, with_cameras=True):
                 "position": [0.02, -0.01, 0.01],
                 "quaternion": [0.0, 0.0, -0.99999999, 6.15e-06],
             }
-        with open(os.path.join(root, f"{i + 1}_pose.json"), "w") as f:
+        with open(os.path.join(root, f"{i}_pose.json"), "w") as f:
             json.dump(pose, f)
 
 

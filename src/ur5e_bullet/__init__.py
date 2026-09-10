@@ -603,7 +603,7 @@ def demo_simulation():
         # ── Phase 2: Sweep W0→max mit Render an jedem Waypoint ──
         done = rendered = skipped = 0
         for i, wp in enumerate(wps):
-            lbl = wp.get("name") or wp.get("label", str(i + 1))
+            lbl = wp.get("name") or wp.get("label", str(i))
             print(f"  → scan {current_start} {lbl} ({i+1}/{len(wps)})...")
             wp_ori = [math.radians(v) for v in wp["tcp_ori_deg"]]
             if i != waypoint_idx:
@@ -612,7 +612,6 @@ def demo_simulation():
                     skipped += 1
                     print(f"  ⛔ {current_start} {lbl} nicht erreichbar – übersprungen")
                     continue
-            idx = i + 1
             cam_l, cam_r = _camera_poses_in_jaw(sim, r_jaw, jaw_pos, q_jaw)
             pose = {
                 "waypoint": i,
@@ -626,10 +625,10 @@ def demo_simulation():
                     "quaternion": cam_r[1],
                 },
             }
-            with open(os.path.join(scan_dir, f"{idx}_pose.json"), "w") as f:
+            with open(os.path.join(scan_dir, f"{i}_pose.json"), "w") as f:
                 json.dump(pose, f, indent=2)
-            rel_left = os.path.join("render", ordner, f"{idx}A_render.png")
-            rel_right = os.path.join("render", ordner, f"{idx}B_render.png")
+            rel_left = os.path.join("render", ordner, f"{i}L_render.png")
+            rel_right = os.path.join("render", ordner, f"{i}R_render.png")
             if _render_pair(rel_left, rel_right):
                 rendered += 1
             else:
