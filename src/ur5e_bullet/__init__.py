@@ -2,6 +2,7 @@ import os
 import json
 import math
 import time
+import tempfile
 import pybullet
 from collections import namedtuple
 
@@ -23,6 +24,9 @@ DRAW_VIEW_STICK = _cfg_mod.DRAW_VIEW_STICK
 VIEW_STICK_LENGTH = _cfg_mod.VIEW_STICK_LENGTH
 VIEW_STICK_RADIUS = _cfg_mod.VIEW_STICK_RADIUS
 VIEW_STICK_COLOR = _cfg_mod.VIEW_STICK_COLOR
+DRAW_CAMERA_FRUSTUM = _cfg_mod.DRAW_CAMERA_FRUSTUM
+CAMERA_FRUSTUM_COLOR = _cfg_mod.CAMERA_FRUSTUM_COLOR
+CAMERA_FRUSTUM_ALPHA = _cfg_mod.CAMERA_FRUSTUM_ALPHA
 LOOK_TARGET_RADIUS = _cfg_mod.LOOK_TARGET_RADIUS
 LOOK_TARGET_COLOR = _cfg_mod.LOOK_TARGET_COLOR
 PB_CAMERA_DISTANCE = _cfg_mod.PB_CAMERA_DISTANCE
@@ -41,6 +45,7 @@ CAMERA_SENSOR_W_MM = _cfg_mod.CAMERA_SENSOR_W_MM
 CAMERA_SENSOR_H_MM = _cfg_mod.CAMERA_SENSOR_H_MM
 CAMERA_ROLL_DEG = _cfg_mod.CAMERA_ROLL_DEG
 CAMERA_FAR_M = _cfg_mod.CAMERA_FAR_M
+CAMERA_NEAR_M = _cfg_mod.CAMERA_NEAR_M
 
 RENDER_DIR = _cfg_mod.RENDER_DIR
 
@@ -122,6 +127,68 @@ def _camera_intrinsic():
         "sensor_h_mm": CAMERA_SENSOR_H_MM,
         "lens_mm": round(CAMERA_LENS_MM, 3),
     }
+
+
+def _frustum_dims(far=CAMERA_FAR_M, near=CAMERA_NEAR_M, fov_deg=CAMERA_FOV_DEG,
+                  sensor_w_mm=CAMERA_SENSOR_W_MM, sensor_h_mm=CAMERA_SENSOR_H_MM):
+    """Halbe Weit-Ebenen-Maße + Nah/Far-Verhältnis des Kamera-Frustums (rein numerisch)."""
+    hfov = math.radians(fov_deg) / 2
+    vfov = math.atan(math.tan(hfov) * sensor_h_mm / sensor_w_mm)
+    return {
+        "half_w": far * math.tan(hfov) + CAMERA_LATERAL_OFFSET,
+        "half_h": far * math.tan(vfov),
+        "far": far,
+        "near": near,
+        "n_ratio": near / far,
+    }
+
+
+def _build_frustum_obj(path, n_ratio=0.1):
+    """Schreibt ein kanonisches Frustum-OBJ (Far-Ebene ±1, Nah-Ebene ±n_ratio).
+    Dreiecke werden programmatisch auf Aussen-Winding korrigiert; gibt True
+    zurueck, wenn die Datei neu geschrieben wurde."""
+    if os.path.isfile(path) and os.path.getsize(path) > 0:
+        return False
+    n = n_ratio
+    near = [(n, n, -n), (-n, n, -n), (-n, -n, -n), (n, -n, -n)]
+    far = [(1, 1, -1), (-1, 1, -1), (-1, -1, -1), (1, -1, -1)]
+    verts = near + far
+    quads = [
+        (0, 1, 5, 4),   # Top (+Y)
+        (1, 2, 6, 5),   # Links (-X)
+        (2, 3, 7, 6),   # Unten (-Y)
+        (3, 0, 4, 7),   # Rechts (+X)
+    ]
+    faces = [0, 1, 2, 0, 2, 3,        # Nah-Kappe
+             4, 6, 5, 4, 6, 7]        # Weit-Kappe
+    for a, b, c, d in quads:
+        faces += [a, c, b, a, d, c]
+    center = [sum(v[k] for v in verts) / len(verts) for k in range(3)]
+    ordered = []
+    for i in range(0, len(faces), 3):
+        tri = faces[i:i + 3]
+        p = [verts[j] for j in tri]
+        e1 = [p[1][k] - p[0][k] for k in range(3)]
+        e2 = [p[2][k] - p[0][k] for k in range(3)]
+        normal = [
+            e1[1] * e2[2] - e1[2] * e2[1],
+            e1[2] * e2[0] - e1[0] * e2[2],
+            e1[0] * e2[1] - e1[1] * e2[0],
+        ]
+        ctri = [sum(v[k] for v in p) / 3 for k in range(3)]
+        to_out = [ctri[k] - center[k] for k in range(3)]
+        nlen = math.sqrt(sum(x * x for x in normal)) or 1.0
+        tnlen = math.sqrt(sum(x * x for x in to_out)) or 1.0
+        dot = sum(normal[k] * to_out[k] for k in range(3)) / (nlen * tnlen)
+        ordered.append(tri if dot >= 0 else list(reversed(tri)))
+    lines = ["o frustum"]
+    for x, y, z in verts:
+        lines.append(f"v {x} {y} {z}")
+    for tri in ordered:
+        lines.append(f"f {tri[0]+1} {tri[1]+1} {tri[2]+1}")
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return True
 
 
 Command = namedtuple("Command", [
@@ -296,9 +363,10 @@ def demo_simulation():
     def draw_view_stick():
         """Zeichnet einen kollisionsfreien Stab vom TCP aus in Richtung der
         Kamera-Blickachse. Stab ist ein persistenter Multibody (ueberlebt
-        removeAllUserDebugItems) und wird bei jeder Bewegung repositioniert."""
+        removeAllUserDebugItems) und wird bei jeder Bewegung repositioniert.
+        Wird durch DRAW_CAMERA_FRUSTUM ersetzt."""
         nonlocal view_stick_id
-        if not DRAW_VIEW_STICK:
+        if not DRAW_VIEW_STICK or DRAW_CAMERA_FRUSTUM:
             _remove_view_stick()
             return
         pos, quat = sim.get_tcp_pose()
@@ -333,6 +401,50 @@ def demo_simulation():
             )
         else:
             pybullet.resetBasePositionAndOrientation(view_stick_id, center, oq)
+
+    def _remove_camera_frustum():
+        nonlocal camera_frustum_id
+        if camera_frustum_id is not None:
+            try:
+                pybullet.removeBody(camera_frustum_id)
+            except Exception:
+                pass
+            camera_frustum_id = None
+
+    def draw_camera_frustum():
+        """Zeichnet das blau-transparente Kamera-Sichtvolumen (Frustum) bis
+        CAMERA_FAR_M exakt im Blender-Kamera-Frame. Wie der View-Stab ein
+        persistenter Multibody, nur bei geladener Startposition sichtbar."""
+        nonlocal camera_frustum_id
+        if not DRAW_CAMERA_FRUSTUM or current_start is None:
+            _remove_camera_frustum()
+            return
+        pos, _ = sim.get_tcp_pose()
+        sc_id = sim.joints["scanner_joint"].id
+        sc_ls = pybullet.getLinkState(sim.ur5, sc_id, computeForwardKinematics=True)
+        sc_orn = list(sc_ls[5])
+        q_cam_sc = _quat_mul(
+            pybullet.getQuaternionFromEuler([0.0, math.radians(-90.0), 0.0]),
+            pybullet.getQuaternionFromEuler([0.0, 0.0, math.radians(CAMERA_ROLL_DEG)]),
+        )
+        cam_quat = _quat_mul(sc_orn, q_cam_sc)
+        dims = _frustum_dims()
+        obj = os.path.join(tempfile.gettempdir(), "ur5e_scan_frustum.obj")
+        _build_frustum_obj(obj, dims["n_ratio"])
+        if camera_frustum_id is None:
+            vis = pybullet.createVisualShape(
+                pybullet.GEOM_MESH,
+                fileName=obj,
+                meshScale=[dims["half_w"], dims["half_h"], dims["far"]],
+                rgbaColor=[*CAMERA_FRUSTUM_COLOR, CAMERA_FRUSTUM_ALPHA],
+            )
+            camera_frustum_id = pybullet.createMultiBody(
+                baseVisualShapeIndex=vis,
+                basePosition=pos,
+                baseOrientation=cam_quat,
+            )
+        else:
+            pybullet.resetBasePositionAndOrientation(camera_frustum_id, pos, cam_quat)
 
     def draw_waypoints():
         nonlocal look_target_body_id
@@ -391,6 +503,7 @@ def demo_simulation():
         items.clear()
         draw_tcp()
         draw_view_stick()
+        draw_camera_frustum()
 
     def draw_probe_preview(rrt_waypoints, target_position):
         if rrt_waypoints:
@@ -452,6 +565,10 @@ def demo_simulation():
     waypoint_bodies = []
     look_target_body_id = None
     view_stick_id = None
+    camera_frustum_id = None
+    current_start = None
+    waypoint_idx = 0
+    current_speed = 0.5
 
     if BOOT_START is not None:
         cfg = BOOT_START
@@ -475,9 +592,6 @@ def demo_simulation():
     print("  Scan:        'scan [n]' (alle bzw. nur die ersten n Waypoints + L/R rendern)")
     print("  Scan-All:    'scan-all <start1> [start2 ...]' (Startpositionen der Reihe nach scannen)")
     print("────────────────────────────────────────────")
-    current_start = None
-    waypoint_idx = 0
-    current_speed = 0.5
     reset_overlay()
 
     def _do_start(name):

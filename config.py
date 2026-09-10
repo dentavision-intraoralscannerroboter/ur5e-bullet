@@ -103,6 +103,14 @@ VIEW_STICK_LENGTH = 0.05
 VIEW_STICK_RADIUS = 0.0015
 VIEW_STICK_COLOR = [1.0, 0.3, 0.0, 1.0]
 
+# ── Kamera-Frustum (Kamerabereich) ──
+# Blau-transparentes Sichtvolumen der Blender-Kamera bis CAMERA_FAR_M
+# (Nah-Far-Ebene aus CAMERA_FOV_DEG + Sensor-Format). Ersetzt den View-Stab,
+# wird nur bei geladener Startposition gezeichnet.
+DRAW_CAMERA_FRUSTUM = True
+CAMERA_FRUSTUM_COLOR = [0.0, 0.55, 1.0]
+CAMERA_FRUSTUM_ALPHA = 0.2
+
 # ── Look-Target (Blickachse-Ziel) ──
 # Optional zusaetzlicher Zielpunkt fuer die Blickachse (Default: Gebiss-Mittelpunkt).
 # Wird als grusnes, kollisionsfreies Kuegelchen an der Waypoint-Ebenen-Hoehe dargestellt.
@@ -221,7 +229,7 @@ S = 1
 
 # ── Kamera-Clipping / Darstellung (nur Blender-Rig) ──
 CAMERA_NEAR_M = 0.001
-CAMERA_FAR_M = 0.03
+CAMERA_FAR_M = 0.04
 CAMERA_DISPLAY_M = 0.2
 
 # ── Licht ──
