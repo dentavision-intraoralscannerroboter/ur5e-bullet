@@ -3,7 +3,7 @@ import os
 
 import importlib.util as _ilu
 
-# ── Intern (nur innerhalb config.py / Modul-Vorbereitung) ──────────────────
+# ── Bootstrap ───────────────────────────────────────────────────────────────
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Waypoint-Generator: ausgelagert in das Schwestermodul waypoints.py
@@ -14,33 +14,32 @@ _wp_spec.loader.exec_module(_wp_mod)
 parabola_waypoints = _wp_mod.parabola_waypoints
 
 
-# ── Gemeinsame Pfade (alle Module) ─────────────────────────────────────────
+# ── Pfade ───────────────────────────────────────────────────────────────────
 PROJECT_ROOT = PKG_DIR
 ROBOT_URDF_PATH = os.path.join(PKG_DIR, "data", "robot_description", "urdf", "ur5e.urdf")
 JAWS_DIR = os.path.join(PKG_DIR, "data", "meshes_jaws")
-BLENDER_URDF_DATA_JSON = os.path.join(PKG_DIR, "data", "urdf_data.json")
 ARM_MESH_DIR = os.path.join(PKG_DIR, "data", "meshes_arm")
+BLENDER_URDF_DATA_JSON = os.path.join(PKG_DIR, "data", "urdf_data.json")
 SCANNER_STAB_STL = os.path.join(PKG_DIR, "data", "robot_description", "meshes", "scanner-stab.stl")
-MIRROR_SCRIPT = os.path.join(PKG_DIR, "blender", "mirror.py")
 RENDER_DIR = os.path.join(PKG_DIR, "render")
 
 
-# ── Nur sim.py ─────────────────────────────────────────────────────────────
-# ── Tool-Offset (Scanner → TCP) ──
+# ── Roboter / Kinematik ────────────────────────────────────────────────────
+# Tool-Offset (Scanner → TCP)
 TOOL_OFFSET_POS = [0.213, 0, -0.006]
 TOOL_OFFSET_ORN = [0, 0, 0, 1]
 
-# ── Kollisions-Abstand des Gebisses ──
+# Kollisions-Abstand des Gebisses
 GEBISS_COLL_CELL = 1.5
 
-# ── IK / RRT ──
+# IK / RRT
 IK_LAMBDA = 0.05
 IK_TOLERANCE = 0.08
 RRT_RESTARTS = 30
 RRT_SMOOTH = 30
 RRT_SEED = 0
 
-# ── Joint Limits (Winkel in Grad) ──
+# Joint Limits (Winkel in Grad)
 # Ein Eintrag pro steuerbarem Gelenk, Reihenfolge = Joint-Reihenfolge
 # (shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2, wrist_3).
 # 'rest': Neutralpose (fuer IK-Seed).
@@ -56,68 +55,91 @@ JOINTS = [
 ]
 
 
-# ── Geteilt: sim.py + __init__.py ─────────────────────────────────────────
-# ── Pybullet-View (GUI-Kamera: Startposition + Startwinkel) ──
-# Setzt die pybullet-Orbit-Kamera beim Start. "Startposition" = cameraTargetPosition
-# (worauf geschaut wird) + cameraDistance; "Startwinkel" = yaw + pitch.
+# ── Kamera / Sensor (RealSense D455) ───────────────────────────────────────
+CAMERA_ROLL_DEG = -90
+CAMERA_SENSOR_W_MM = 36.0
+CAMERA_SENSOR_H_MM = CAMERA_SENSOR_W_MM * 9 / 16
+CAMERA_FOV_DEG = 87
+CAMERA_LENS_MM = CAMERA_SENSOR_W_MM / (2 * math.tan(math.radians(CAMERA_FOV_DEG) / 2))
+# Seitlicher Versatz der beiden Kameras (Stereo-Baseline) relativ zum TCP,
+# in Scanner-lokalen Koordinaten (Y-Achse), in Meter (S=1 -> 1 BU).
+# Jede Kamera wird um +/- CAMERA_LATERAL_OFFSET quer zur Blickrichtung versetzt.
+CAMERA_LATERAL_OFFSET = 0.0015
+# Kamera-Clipping
+CAMERA_NEAR_M = 0.001
+CAMERA_FAR_M = 0.04
+CAMERA_DISPLAY_M = 0.2
+
+
+# ── Rendering ───────────────────────────────────────────────────────────────
+RENDER_W = 1920
+RENDER_H = 1080
+RENDER_ENGINE = "CYCLES"
+RENDER_DEVICE = "GPU"
+# Gesamttimeout pro Render-Paar (L+R, Worst-Case ~6 min/Bild), danach Scan-Abbruch.
+RENDER_TIMEOUT = 900
+RENDER_TRANSPARENT = False
+
+
+# ── PyBullet GUI ────────────────────────────────────────────────────────────
+# Orbit-Kamera beim Start: "Startposition" = cameraTargetPosition + cameraDistance;
+# "Startwinkel" = yaw + pitch.
 PB_CAMERA_DISTANCE   = 1.0
 PB_CAMERA_YAW        = 70.0
 PB_CAMERA_PITCH      = -25.0
 PB_CAMERA_TARGET_POS = [0.6, 0.0, 0.4]
+PREVIEW_PAUSE = 0.6
+WAYPOINT_MARKER_RADIUS = 0.001
 
-
-# ── Geteilt: sim.py + blender/rig.py ──────────────────────────────────────
-# ── Gebiss ──
-# Position/Orientierung kommen NICHT aus globalen Konstanten, sondern aus den
-# Startpositionen (START_POSITIONS[<name>]["jaw_pos"] / ["jaw_euler_deg"]).
-GEBISS_SCALE = [0.001, 0.001, 0.001]
-
-
-# ── Nur __init__.py ───────────────────────────────────────────────────────
-# ── Boot-Startposition (nur Arm) ──
-# Wird beim Programmstart angefahren. Das Gebiss wird NICHT geladen –
-# das passiert erst beim 'start <name>' oder 'jaw'-Befehl.
+# Boot-Startposition (nur Arm, kein Gebiss).
 # Auf None setzen, um das Verhalten zu deaktivieren.
 BOOT_START = {
     "tcp_pos":     [0.85, 0, 0.38],
     "tcp_ori_deg": [0, 0, 0],
 }
 
-# ── Render-Timeouts / UI-Cues ──
-# Gesamttimeout pro Render-Paar (L+R, Worst-Case ~6 min/Bild), danach Scan-Abbruch.
-RENDER_TIMEOUT = 900
-PREVIEW_PAUSE = 0.6
-WAYPOINT_MARKER_RADIUS = 0.001
 
-# ── Blender-Sync ──
-# Legt fest, ob beim Start der Blender-Sync-Mirror mitgestartet wird
-# (pusht den Roboterzustand per TCP-Socket an eine Blender-GUI-Instanz).
-ENABLE_BLENDER_SYNC = True
-
-# ── Debug: Sichtachse (Stab vom TCP) ──
-# Zeichnet einen kollisionsfreien Stab vom TCP aus in Richtung der Kamera-
-# Blickachse (Kandidat: TCP-lokales -Z), um die TCP->Kamera-Orientierung
-# visuell zu verifizieren.
+# ── Visualisierung / Debug ──────────────────────────────────────────────────
+# TCP-Sichtachse (Stab vom TCP in Blickrichtung)
 DRAW_VIEW_STICK = True
 VIEW_STICK_LENGTH = 0.05
 VIEW_STICK_RADIUS = 0.0015
 VIEW_STICK_COLOR = [1.0, 0.3, 0.0, 1.0]
 
-# ── Kamera-Frustum (Kamerabereich) ──
-# Blau-transparentes Sichtvolumen der Blender-Kamera bis CAMERA_FAR_M
-# (Nah-Far-Ebene aus CAMERA_FOV_DEG + Sensor-Format). Ersetzt den View-Stab,
-# wird nur bei geladener Startposition gezeichnet.
+# Kamera-Frustum (Sichtvolumen bis CAMERA_FAR_M, nur bei Startposition sichtbar)
 DRAW_CAMERA_FRUSTUM = True
 CAMERA_FRUSTUM_COLOR = [0.0, 0.55, 1.0]
 CAMERA_FRUSTUM_ALPHA = 0.2
 
-# ── Look-Target (Blickachse-Ziel) ──
-# Optional zusaetzlicher Zielpunkt fuer die Blickachse (Default: Gebiss-Mittelpunkt).
-# Wird als grusnes, kollisionsfreies Kuegelchen an der Waypoint-Ebenen-Hoehe dargestellt.
+# Look-Target (Blickachse-Ziel, Default: Gebiss-Mittelpunkt)
 LOOK_TARGET_RADIUS = 0.008
 LOOK_TARGET_COLOR = [0.1, 1.0, 0.3, 0.95]
 
-# ── Scan-Konfiguration ──
+
+# ── Gebiss / Material ──────────────────────────────────────────────────────
+# Position/Orientierung kommen NICHT aus globalen Konstanten, sondern aus den
+# Startpositionen (START_POSITIONS[<name>]["jaw_pos"] / ["jaw_euler_deg"]).
+GEBISS_SCALE = [0.001, 0.001, 0.001]
+GEBISS_ROUGHNESS = 0.8
+GEBISS_SPECULAR = 0.2
+
+
+# ── Blender ─────────────────────────────────────────────────────────────────
+S = 1
+LIGHT_POWER = 0.0009
+LIGHT_OFFSET = [0.008, 0.025, 0.213]
+
+# Blender-Sync (Robot-Zustand per TCP-Socket an Blender-GUI)
+ENABLE_BLENDER_SYNC = True
+MIRROR_SCRIPT = os.path.join(PKG_DIR, "blender", "mirror.py")
+SOCKET_BUFFER = 4096
+SOCKET_POLL_INTERVAL = 0.05
+
+# Viewport an scene.camera (ScannerCamera_R) heften
+ATTACH_VIEWPORT_TO_CAMERA = True
+
+
+# ── Scan-Positionen ─────────────────────────────────────────────────────────
 # tcp_ori_deg / jaw_euler_deg: Orientierung in Grad
 # approach (optional): Liste von Zwischen-TCP-Posen, die beim 'start <name>'
 #   nacheinander angefahren werden (jeweils mit eigenem IK-Seed), bevor die
@@ -202,52 +224,3 @@ START_POSITIONS = {
         "waypoints": [],
     },
 }
-
-
-# ── Geteilt: __init__.py + blender/rig.py ─────────────────────────────────
-# ── Kamera (RealSense D455) ──
-CAMERA_ROLL_DEG = -90
-CAMERA_SENSOR_W_MM = 36.0
-CAMERA_SENSOR_H_MM = CAMERA_SENSOR_W_MM * 9 / 16
-CAMERA_FOV_DEG = 87
-CAMERA_LENS_MM = CAMERA_SENSOR_W_MM / (2 * math.tan(math.radians(CAMERA_FOV_DEG) / 2))
-# Seitlicher Versatz der beiden Kameras (Stereo-Baseline) relativ zum TCP,
-# in Scanner-lokalen Koordinaten (Y-Achse), in Meter (S=1 -> 1 BU).
-# Jede Kamera wird um +/- CAMERA_LATERAL_OFFSET quer zur Blickrichtung versetzt.
-CAMERA_LATERAL_OFFSET = 0.0015
-
-# ── Render ──
-RENDER_W = 1920
-RENDER_H = 1080
-RENDER_ENGINE = "CYCLES"
-RENDER_DEVICE = "GPU"
-
-
-# ── Nur blender/rig.py ─────────────────────────────────────────────────────
-# ── Blender Scale Factor ──
-S = 1
-
-# ── Kamera-Clipping / Darstellung (nur Blender-Rig) ──
-CAMERA_NEAR_M = 0.001
-CAMERA_FAR_M = 0.04
-CAMERA_DISPLAY_M = 0.2
-
-# ── Licht ──
-LIGHT_POWER = 0.0009
-LIGHT_OFFSET = [0.008, 0.025, 0.213]
-
-# ── Material Gebiss ──
-GEBISS_ROUGHNESS = 0.8
-GEBISS_SPECULAR = 0.2
-
-RENDER_TRANSPARENT = False
-
-
-# ── Nur blender/mirror.py ──────────────────────────────────────────────────
-SOCKET_BUFFER = 4096
-SOCKET_POLL_INTERVAL = 0.05
-
-# ── Viewport ──
-# Beim Blender-Start den 3D-Viewport an scene.camera (ScannerCamera_R) heften,
-# sodass er wie ein Sucher der Kamera durch die Kamera blickt und der Bewegung folgt.
-ATTACH_VIEWPORT_TO_CAMERA = True
